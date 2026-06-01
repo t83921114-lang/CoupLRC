@@ -1,18 +1,17 @@
 #!/bin/bash
 
-cd /users/Fengming
-sudo chmod 777 -R UniLRC
-cd UniLRC
+cd "$(dirname "$0")"
+sudo chmod 777 -R .
 
 
 # 定义源文件夹路径
-SOURCE_DIR="/users/Fengming/UniLRC"
+SOURCE_DIR="."
 
 # 定义 hosts 文件路径
 HOSTS_FILE="hosts"
 
 # 定义远程目标文件夹路径
-REMOTE_DIR="/users/Fengming/UniLRC"
+REMOTE_DIR="$(pwd)"
 
 # 检查 hosts 文件是否存在
 if [[ ! -f "$HOSTS_FILE" ]]; then
