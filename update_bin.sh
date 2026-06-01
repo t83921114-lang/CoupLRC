@@ -48,6 +48,8 @@ FIRST_PORT="$(get_ini cluster first_proxy_port)"
 DN_PORT_START="$(get_ini cluster datanode_port_start)"
 COORD_IP="$(get_ini cluster coordinator_ip)"
 SSH_USER="$(get_ini ssh user)"
+IP_MODE="$(get_ini cluster ip_mode)"
+[ -n "$IP_MODE" ] || IP_MODE="distributed"
 
 [ -n "${CLUSTER_NUM:-}" ] && [ -n "${DN_PER:-}" ] && [ -n "${FIRST_IP:-}" ] && [ -n "${FIRST_PORT:-}" ] || {
   echo "Missing required [cluster] keys in $CONFIG"
@@ -66,18 +68,25 @@ fi
 PREFIX="${FIRST_IP%.*}."
 FIRST_OCTET="${FIRST_IP##*.}"
 
-# Infer endpoints exactly like generate_xml_from_ini.py / run_all_remote.sh:
-# each cluster: 1 proxy IP, DN_PER datanode IPs; all unique by incrementing last octet.
+# Infer endpoints exactly like generate_xml_from_ini.py / run_all_remote.sh
 PROXY_IPS=()
 DN_IPS=()
 ip_idx=0
 for ((c=0; c<CLUSTER_NUM; c++)); do
-  proxy_ip="${PREFIX}$((FIRST_OCTET + ip_idx))"
-  ip_idx=$((ip_idx + 1))
+  if [ "$IP_MODE" = "port_simulated" ]; then
+    proxy_ip="${PREFIX}$((FIRST_OCTET + c))"
+  else
+    proxy_ip="${PREFIX}$((FIRST_OCTET + ip_idx))"
+    ip_idx=$((ip_idx + 1))
+  fi
   PROXY_IPS+=("$proxy_ip")
   for ((d=0; d<DN_PER; d++)); do
-    dn_ip="${PREFIX}$((FIRST_OCTET + ip_idx))"
-    ip_idx=$((ip_idx + 1))
+    if [ "$IP_MODE" = "port_simulated" ]; then
+      dn_ip="$proxy_ip"
+    else
+      dn_ip="${PREFIX}$((FIRST_OCTET + ip_idx))"
+      ip_idx=$((ip_idx + 1))
+    fi
     DN_IPS+=("$dn_ip")
   done
 done

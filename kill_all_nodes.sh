@@ -1,10 +1,11 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HOSTS_FILE="hosts"
 
 USER="root"
 
-REMOTE_COMMAND="cd /users/Fengming/UniLRC && sh kill_all.sh"
+REMOTE_COMMAND="cd $SCRIPT_DIR && sh kill_all.sh"
 
 PARALLEL=5
 
@@ -17,5 +18,5 @@ else
 	echo "Failed to execute command on some nodes."
 fi
 
-cd /users/Fengming/UniLRC
+cd "$SCRIPT_DIR"
 sh kill_all.sh

@@ -1,8 +1,9 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 USER="root"
 
-REMOTE_COMMAND="cd /users/Fengming/UniLRC && sh run_coordinator.sh"
+REMOTE_COMMAND="cd $SCRIPT_DIR && sh run_coordinator.sh"
 
 PARALLEL=5
 

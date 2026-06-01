@@ -44,7 +44,9 @@ FIRST_PORT=$(get_ini cluster first_proxy_port)
 DN_PORT_START=$(get_ini cluster datanode_port_start)
 COORD_IP=$(get_ini cluster coordinator_ip)
 SSH_USER=$(get_ini ssh user)
+IP_MODE=$(get_ini cluster ip_mode)
 REMOTE_REPO="$SCRIPT_DIR"
+[ -n "$IP_MODE" ] || IP_MODE="distributed"
 
 # 校验
 [ -n "$CLUSTER_NUM" ] && [ -n "$DN_PER" ] && [ -n "$FIRST_IP" ] && [ -n "$FIRST_PORT" ] || {
@@ -56,9 +58,10 @@ REMOTE_REPO="$SCRIPT_DIR"
   exit 1
 }
 
-# 127.0.0.1 则所有节点 IP 均为 127.0.0.1（选项 B）
+# 127.0.0.1 则所有节点 IP 均为 127.0.0.1
 if [ "$FIRST_IP" = "127.0.0.1" ]; then
   USE_LOCALHOST=1
+  IP_MODE="colocated"
 else
   USE_LOCALHOST=0
   PREFIX="${FIRST_IP%.*}."
@@ -79,11 +82,11 @@ c=0
 while [ "$c" -lt "$CLUSTER_NUM" ]; do
   PROXY_PORT=$((FIRST_PORT + c))
 
-  # Allocate unique IPs globally (same logic as generate_xml_from_ini.py):
-  # - proxy gets one IP
-  # - each datanode in this cluster gets its own IP
+  # Same logic as generate_xml_from_ini.py
   if [ "$USE_LOCALHOST" = 1 ]; then
     PROXY_IP="127.0.0.1"
+  elif [ "$IP_MODE" = "port_simulated" ]; then
+    PROXY_IP="${PREFIX}$((FIRST_OCTET + c))"
   else
     PROXY_IP="${PREFIX}$((FIRST_OCTET + ip_idx))"
     ip_idx=$((ip_idx + 1))
@@ -91,12 +94,12 @@ while [ "$c" -lt "$CLUSTER_NUM" ]; do
 
   echo "Cluster $c: proxy ${PROXY_IP}:${PROXY_PORT}"
 
-  # Start datanodes (each potentially on a different host)
+  # Start datanodes (port_simulated / localhost: same host as proxy, different ports)
   d=0
   while [ "$d" -lt "$DN_PER" ]; do
     DP=$((DN_PORT_START + c * DN_PER + d))
-    if [ "$USE_LOCALHOST" = 1 ]; then
-      DN_IP="127.0.0.1"
+    if [ "$USE_LOCALHOST" = 1 ] || [ "$IP_MODE" = "port_simulated" ]; then
+      DN_IP="$PROXY_IP"
     else
       DN_IP="${PREFIX}$((FIRST_OCTET + ip_idx))"
       ip_idx=$((ip_idx + 1))

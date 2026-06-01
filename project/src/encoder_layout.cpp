@@ -104,12 +104,16 @@ namespace ECProject
     int local_group_size = k / z;
     int group_num_of_one_local_group = local_group_size / group_size + 1;
     int group_num = z * group_num_of_one_local_group + 1;
+    // Evenly split (data + 1 local parity) per rack; last group holds the local parity slot.
+    int total_per_rack = local_group_size + 1;
+    int base = total_per_rack / group_num_of_one_local_group;
+    int rem = total_per_rack % group_num_of_one_local_group;
     for (int i = 0; i < group_num - 1; i++)
     {
-      if ((i + 1) % group_num_of_one_local_group)
-        data_block_num_per_group.push_back(group_size);
-      else
-        data_block_num_per_group.push_back(local_group_size % group_size);
+      int pos_in_rack = i % group_num_of_one_local_group;
+      int slots = base + (pos_in_rack < rem ? 1 : 0);
+      bool is_last_in_rack = (pos_in_rack == group_num_of_one_local_group - 1);
+      data_block_num_per_group.push_back(is_last_in_rack ? slots - 1 : slots);
     }
     data_block_num_per_group.push_back(0);
     return data_block_num_per_group;

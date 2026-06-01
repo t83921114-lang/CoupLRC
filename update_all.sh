@@ -20,7 +20,7 @@ if [[ ! -f "$HOSTS_FILE" ]]; then
 fi
 
 # 遍历 hosts 文件中的每个 IP 地址
-while read -r ip; do
+while read -r ip || [ -n "$ip" ]; do
 
     echo "Copying to host: $ip..."
 

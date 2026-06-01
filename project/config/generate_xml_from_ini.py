@@ -32,6 +32,7 @@ def compute_cluster_info(cfg):
     first_ip = sect["first_proxy_ip"].strip()
     first_port = int(sect["first_proxy_port"])
     dn_start = int(sect["datanode_port_start"])
+    ip_mode = sect.get("ip_mode", "distributed").strip()
     use_localhost = first_ip == "127.0.0.1"
     if use_localhost:
         prefix, first_octet = "", 0
@@ -41,19 +42,25 @@ def compute_cluster_info(cfg):
         first_octet = int(parts[1])
     clusters = []
     # IP allocation:
-    # - If first_proxy_ip is 127.0.0.1, keep all IPs as 127.0.0.1 (option B).
-    # - Otherwise, allocate unique IPs globally starting from first_proxy_ip:
-    #   proxy + all datanodes across all clusters each get a distinct IP by incrementing the last octet.
+    # - 127.0.0.1: all endpoints share localhost, distinguished by port only.
+    # - port_simulated: one real node per cluster; datanodes share the proxy IP.
+    # - distributed: proxy and each datanode each get a distinct IP (last octet increments).
     ip_idx = 0
     for c in range(n):
-        proxy_ip = "127.0.0.1" if use_localhost else f"{prefix}{first_octet + ip_idx}"
-        if not use_localhost:
+        if use_localhost:
+            proxy_ip = "127.0.0.1"
+        elif ip_mode == "port_simulated":
+            proxy_ip = f"{prefix}{first_octet + c}"
+        else:
+            proxy_ip = f"{prefix}{first_octet + ip_idx}"
             ip_idx += 1
         proxy_port = first_port + c
         datanodes = []
         for d in range(dn_per):
-            dn_ip = "127.0.0.1" if use_localhost else f"{prefix}{first_octet + ip_idx}"
-            if not use_localhost:
+            if use_localhost or ip_mode == "port_simulated":
+                dn_ip = proxy_ip
+            else:
+                dn_ip = f"{prefix}{first_octet + ip_idx}"
                 ip_idx += 1
             datanodes.append(f"{dn_ip}:{dn_start + c * dn_per + d}")
         clusters.append({"proxy": f"{proxy_ip}:{proxy_port}", "datanodes": datanodes})
