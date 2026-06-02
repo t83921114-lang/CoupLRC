@@ -179,3 +179,20 @@ add_executable(recovery_plan_test
     ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder.cpp
     ${ASM_SOURCES}
 )
+
+# Exp#7: pure encoding microbenchmark (no gRPC / cluster)
+add_executable(encode_benchmark
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/encode_benchmark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tinyxml2.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder.cpp
+    ${ASM_SOURCES}
+)
+target_include_directories(encode_benchmark PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(encode_benchmark
+    -lpthread
+    -lJerasure
+    -lgf_complete
+)
