@@ -1602,8 +1602,41 @@ namespace ECProject
 
   bool CoordinatorImpl::recovery_one_block(int stripe_id, int failed_block_id)
   {
+    auto plan = ECProject::get_recovery_group_and_block_ids(
+        m_sys_config->CodeType, m_sys_config->k, m_sys_config->r, m_sys_config->z, failed_block_id);
+    return recovery_one_block_with_plan(stripe_id, failed_block_id, plan);
+  }
+
+  bool CoordinatorImpl::recovery_lotus_two_blocks_same_local_group(int stripe_id, int failed_block_id0,
+                                                                  int failed_block_id1)
+  {
+    const int k = m_sys_config->k;
+    const int r = m_sys_config->r;
+    const int z = m_sys_config->z;
+    int first = std::min(failed_block_id0, failed_block_id1);
+    int second = std::max(failed_block_id0, failed_block_id1);
+    std::vector<std::pair<int, std::vector<int>>> plan;
+    try {
+      plan = ECProject::get_recovery_group_and_block_ids_lotuslrc_2block_recovery(k, r, z, first, second);
+    } catch (const std::exception &e) {
+      std::cout << "[Coordinator] Lotus two-block plan failed: " << e.what() << std::endl;
+      return false;
+    }
+    if (plan.empty()) {
+      std::cout << "[Coordinator] Lotus two-block: empty recovery plan" << std::endl;
+      return false;
+    }
+    std::cout << "[Coordinator] Lotus two-block same local group: recover " << first
+              << " with 2-block plan, then " << second << " with single-block plan" << std::endl;
+    if (!recovery_one_block_with_plan(stripe_id, first, plan))
+      return false;
+    return recovery_one_block(stripe_id, second);
+  }
+
+  bool CoordinatorImpl::recovery_one_block_with_plan(int stripe_id, int failed_block_id,
+      const std::vector<std::pair<int, std::vector<int>>> &plan)
+  {
     Stripe &t_stripe = m_stripe_table[stripe_id];
-    auto plan = ECProject::get_recovery_group_and_block_ids(m_sys_config->CodeType, m_sys_config->k, m_sys_config->r, m_sys_config->z, failed_block_id);
     grpc::Status status;
 
     if (!plan.empty())
@@ -1712,7 +1745,7 @@ namespace ECProject
         return dest_success;
       }
     }
-    std::cout << "[Coordinator] recovery_one_block: get_recovery_group_and_block_ids returned empty" << std::endl;
+    std::cout << "[Coordinator] recovery_one_block_with_plan: empty plan for block " << failed_block_id << std::endl;
     return false;
   }
 
@@ -2340,6 +2373,16 @@ namespace ECProject
     if (recover_num == 0) {
       return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "no blocks to recover");
     }
+
+    if (all_failed_num == 2 && recover_num == 2 &&
+        m_sys_config->CodeType == "LotusLRC" &&
+        ECProject::blocks_same_local_group(m_sys_config->CodeType, m_sys_config->k, m_sys_config->r,
+                                           m_sys_config->z, all_failed[0], all_failed[1])) {
+      if (recovery_lotus_two_blocks_same_local_group(stripe_id, all_failed[0], all_failed[1]))
+        return grpc::Status::OK;
+      return grpc::Status(grpc::StatusCode::INTERNAL, "Lotus two-block same local group recovery failed");
+    }
+
     std::vector<int> node_ids;
     for (int i = 0; i < all_failed_num; i++) {
       node_ids.push_back(m_stripe_table[stripe_id].blocks[all_failed[i]]->map2node);

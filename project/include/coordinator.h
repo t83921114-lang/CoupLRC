@@ -160,6 +160,9 @@ namespace ECProject
     void add_block_list_to_degraded_read_request(Stripe &stripe, const std::vector<int> &block_ids, proxy_proto::DegradedReadRequest *request);
     void getStripeFromProxy(std::string client_ip, int client_port, std::string proxy_ip, int proxy_port, int stripe_id, int group_id, std::vector<int> block_ids);
     bool recovery_one_block(int stripe_id, int failed_block_id);
+    bool recovery_one_block_with_plan(int stripe_id, int failed_block_id,
+        const std::vector<std::pair<int, std::vector<int>>> &plan);
+    bool recovery_lotus_two_blocks_same_local_group(int stripe_id, int failed_block_id0, int failed_block_id1);
     bool recovery_one_block_breakdown(int stripe_id, int failed_block_id, 
       std::vector<double> &disk_io_start_time, std::vector<double> &disk_io_end_time, std::vector<double> &decode_start_time, std::vector<double> &decode_end_time,
       std::vector<double> &network_start_time, std::vector<double> &network_end_time, double &cross_rack_network_time, double &cross_rack_xor_time,

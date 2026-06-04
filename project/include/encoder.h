@@ -135,6 +135,17 @@ namespace ECProject
 
     int xor_avx(int vects, int len, void **array);
 
+    enum class TwoBlockRecoveryMode {
+        TwoSingleBlock,
+        GlobalThenSingle,
+        LotusSameGroupPlanBased,
+    };
+
+    int get_block_id_to_local_group_id(const std::string &code_type, int k, int r, int z, int block_id);
+    bool blocks_same_local_group(const std::string &code_type, int k, int r, int z, int block_id0, int block_id1);
+    TwoBlockRecoveryMode select_two_block_recovery_mode(const std::string &code_type, int k, int r, int z,
+                                                        int block_id0, int block_id1);
+
     // Global multi-block decode plan:
     // - failed_block_indexes: ids of failed blocks (row indices in generator matrix)
     // - global_decode_block_indexes: chosen source block ids (columns to read)

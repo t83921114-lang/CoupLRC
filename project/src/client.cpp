@@ -4,6 +4,7 @@
 #include <asio.hpp>
 #include <thread>
 #include <assert.h>
+#include <algorithm>
 #include <chrono>
 #include "encoder.h"
 namespace ECProject
@@ -1131,24 +1132,69 @@ namespace ECProject
     return true;
   }
 
-  bool Client::multi_block_recovery(int stripe_id, std::vector<int> all_failed_block_ids,
+  bool Client::call_global_recovery(int stripe_id, const std::vector<int> &all_failed_block_ids,
                                     const std::vector<int> &recovery_block_ids)
   {
     grpc::ClientContext context;
     coordinator_proto::StripeIdAndBlockIDsFromClient request;
     request.set_stripe_id(stripe_id);
-    for (size_t i = 0; i < all_failed_block_ids.size(); i++)
-      request.add_block_ids(all_failed_block_ids[i]);
-    for (size_t i = 0; i < recovery_block_ids.size(); i++)
-      request.add_recovery_block_ids(recovery_block_ids[i]);
-
+    for (int bid : all_failed_block_ids)
+      request.add_block_ids(bid);
+    for (int bid : recovery_block_ids)
+      request.add_recovery_block_ids(bid);
     coordinator_proto::RecoveryReply reply;
     grpc::Status status = m_coordinator_ptr->globalRecovery(&context, request, &reply);
-    if (!status.ok())
-    {
-      std::cout << "[Client] multi block recovery failed!" << std::endl;
+    if (!status.ok()) {
+      std::cout << "[Client] global recovery failed!" << std::endl;
       return false;
     }
     return true;
+  }
+
+  bool Client::multi_block_recovery(int stripe_id, std::vector<int> all_failed_block_ids,
+                                    const std::vector<int> &recovery_block_ids)
+  {
+    if (all_failed_block_ids.size() != 2) {
+      return call_global_recovery(stripe_id, all_failed_block_ids, recovery_block_ids);
+    }
+
+    const int f0 = all_failed_block_ids[0];
+    const int f1 = all_failed_block_ids[1];
+    const std::string &code_type = m_sys_config->CodeType;
+    const int k = m_sys_config->k;
+    const int r = m_sys_config->r;
+    const int z = m_sys_config->z;
+
+    ECProject::TwoBlockRecoveryMode mode =
+        ECProject::select_two_block_recovery_mode(code_type, k, r, z, f0, f1);
+
+    switch (mode) {
+    case ECProject::TwoBlockRecoveryMode::TwoSingleBlock:
+      std::cout << "[Client] two-block recovery: different local groups, two single-block recoveries"
+                << std::endl;
+      return recovery(stripe_id, f0) && recovery(stripe_id, f1);
+
+    case ECProject::TwoBlockRecoveryMode::GlobalThenSingle: {
+      if (!recovery_block_ids.empty()) {
+        std::cout << "[Client] warning: recovery_block_ids ignored for GlobalThenSingle two-block mode"
+                  << std::endl;
+      }
+      const int first = std::min(f0, f1);
+      const int second = std::max(f0, f1);
+      std::cout << "[Client] two-block recovery: same local group (non-Lotus), global block "
+                << first << " then single-block " << second << std::endl;
+      return call_global_recovery(stripe_id, {f0, f1}, {first}) && recovery(stripe_id, second);
+    }
+
+    case ECProject::TwoBlockRecoveryMode::LotusSameGroupPlanBased:
+      if (!recovery_block_ids.empty()) {
+        std::cout << "[Client] warning: recovery_block_ids ignored for Lotus same-group two-block mode"
+                  << std::endl;
+      }
+      std::cout << "[Client] two-block recovery: Lotus same local group, plan-based (no global matrix)"
+                << std::endl;
+      return call_global_recovery(stripe_id, {f0, f1}, {});
+    }
+    return false;
   }
 } // namespace ECProject

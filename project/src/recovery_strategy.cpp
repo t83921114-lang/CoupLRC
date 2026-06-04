@@ -14,7 +14,43 @@
 #include <vector>
 
 namespace ECProject {
-// only support failed block indexes in the same group
+
+int get_block_id_to_local_group_id(const std::string &code_type, int k, int r, int z, int block_id)
+{
+    if (code_type == "AzureLRC")
+        return get_azurelrc_block_id_to_local_group_id(k, r, z, block_id);
+    if (code_type == "OptimalLRC")
+        return get_optimal_lrc_block_id_to_local_group_id(k, r, z, block_id);
+    if (code_type == "UniformLRC")
+        return get_uniform_lrc_block_id_to_local_group_id(k, r, z, block_id);
+    if (code_type == "UniLRC") {
+        if (block_id < k)
+            return block_id / (k / z);
+        if (block_id < k + r)
+            return (block_id - k) / (r / z);
+        return block_id - k - r;
+    }
+    if (code_type == "LotusLRC")
+        return get_lotuslrc_block_id_to_local_group_id(k, r, z, block_id);
+    throw std::runtime_error("unknown code type for local group id: " + code_type);
+}
+
+bool blocks_same_local_group(const std::string &code_type, int k, int r, int z, int block_id0, int block_id1)
+{
+    return get_block_id_to_local_group_id(code_type, k, r, z, block_id0) ==
+           get_block_id_to_local_group_id(code_type, k, r, z, block_id1);
+}
+
+TwoBlockRecoveryMode select_two_block_recovery_mode(const std::string &code_type, int k, int r, int z,
+                                                    int block_id0, int block_id1)
+{
+    if (!blocks_same_local_group(code_type, k, r, z, block_id0, block_id1))
+        return TwoBlockRecoveryMode::TwoSingleBlock;
+    if (code_type == "LotusLRC")
+        return TwoBlockRecoveryMode::LotusSameGroupPlanBased;
+    return TwoBlockRecoveryMode::GlobalThenSingle;
+}
+
 bool get_global_decode_plan(int k, int r, int z, const std::string &code_type,
                             const std::vector<int> &failed_block_indexes,
                             std::vector<int> &global_decode_block_indexes,
@@ -44,71 +80,6 @@ bool get_global_decode_plan(int k, int r, int z, const std::string &code_type,
         global_decode_block_indexes.clear();
         rows = cols = 0;
         return false;
-    }
-
-    // LotusLRC: two failed blocks in the same local group can use a smaller local system.
-    // Here we only set up global_decode_block_indexes and a compact full_coeffs matrix.
-    // The actual coefficient values for this special case should be filled in later.
-    if (code_type == "LotusLRC" && failed_block_indexes.size() == 2) {
-        int f0 = failed_block_indexes[0];
-        int f1 = failed_block_indexes[1];
-        try {
-            int lg0 = get_lotuslrc_block_id_to_local_group_id(k, r, z, f0);
-            int lg1 = get_lotuslrc_block_id_to_local_group_id(k, r, z, f1);
-            if (lg0 == lg1) {
-                // Same local group: use all usable blocks from this local group as sources.
-                std::vector<std::pair<int, std::vector<int>>> groups =
-                    get_recovery_group_and_block_ids_lotuslrc_2block_recovery(k, r, z, f0, f1);
-                std::vector<int> sources;
-                for (const auto &p : groups) {
-                    for (int bid : p.second) {
-                        sources.push_back(bid);
-                    }
-                }
-                if (!sources.empty()) {
-                    global_decode_block_indexes = sources;
-                    const int F_lotus = 2;
-                    int K = static_cast<int>(sources.size());
-                    rows = R;
-                    cols = 0;
-                    std::vector<unsigned char> full_coeffs(F_lotus * K);
-                    // TODO: fill full_coeffs[f * K + j] with real coefficients for LotusLRC 2-block local system.
-                    // Currently they are left as zeros for placeholder.
-
-                    if (local_source_block_ids != nullptr && local_matrix != nullptr) {
-                        cols = static_cast<int>(local_source_block_ids->size());
-                        for (int rr = 0; rr < R; ++rr) {
-                            int f_src = -1;
-                            if (recovery_order[rr] == f0) f_src = 0;
-                            else if (recovery_order[rr] == f1) f_src = 1;
-                            else {
-                                global_decode_block_indexes.clear();
-                                rows = cols = 0;
-                                return false;
-                            }
-                            for (int i = 0; i < cols; ++i) {
-                                int local_bid = (*local_source_block_ids)[i];
-                                int j_global = -1;
-                                for (int j = 0; j < K; ++j) {
-                                    if (global_decode_block_indexes[j] == local_bid) {
-                                        j_global = j;
-                                        break;
-                                    }
-                                }
-                                unsigned char val = 0;
-                                if (j_global != -1) {
-                                    val = full_coeffs[f_src * K + j_global];
-                                }
-                                local_matrix[rr * cols + i] = val;
-                            }
-                        }
-                    }
-                    return true;
-                }
-            }
-        } catch (const std::exception &) {
-            // fall through to generic global plan on any error
-        }
     }
 
     // Fast-path (experimental): when the failed-block count matches a specific pattern,

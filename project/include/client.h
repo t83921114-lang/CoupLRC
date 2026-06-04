@@ -97,6 +97,8 @@ namespace ECProject
     bool decode_test(int stripe_id, int failed_block_id, std::string client_ip, int client_port, double &decode_time);
 
   private:
+    bool call_global_recovery(int stripe_id, const std::vector<int> &all_failed_block_ids,
+                              const std::vector<int> &recovery_block_ids);
     std::unique_ptr<coordinator_proto::coordinatorService::Stub> m_coordinator_ptr;
     std::string m_coordinatorIpPort;
     std::string m_clientIPForGet;

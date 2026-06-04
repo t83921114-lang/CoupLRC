@@ -3,7 +3,7 @@ project(project)
 
 # 启用汇编语言支持（NASM）
 enable_language(ASM_NASM)
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 set(CMAKE_ASM_NASM_SOURCE_FILE_EXTENSIONS asm)  # 识别 .asm 文件
 set(CMAKE_ASM_NASM_COMPILER "/usr/bin/nasm")              # 指定 NASM 汇编器
 set(CMAKE_ASM_NASM_OBJECT_FORMAT elf64)

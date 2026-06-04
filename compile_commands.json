@@ -1,1 +1,494 @@
-/home/tangfengming/codeField/UniLRC/project/cmake/build/compile_commands.json
+[
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/proto/coordinator.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/coordinator.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/coordinator.pb.cc",
+  "output": "CMakeFiles/run_coordinator.dir/src/proto/coordinator.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/proto/coordinator.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/coordinator.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/coordinator.grpc.pb.cc",
+  "output": "CMakeFiles/run_coordinator.dir/src/proto/coordinator.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/proto/proxy.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/proxy.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/proxy.pb.cc",
+  "output": "CMakeFiles/run_coordinator.dir/src/proto/proxy.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/proto/proxy.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/proxy.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/proxy.grpc.pb.cc",
+  "output": "CMakeFiles/run_coordinator.dir/src/proto/proxy.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/proto/datanode.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/datanode.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/datanode.pb.cc",
+  "output": "CMakeFiles/run_coordinator.dir/src/proto/datanode.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/proto/datanode.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/datanode.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/datanode.grpc.pb.cc",
+  "output": "CMakeFiles/run_coordinator.dir/src/proto/datanode.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/client.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/client.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/client.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/client.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/coordinator.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/coordinator.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/coordinator.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/coordinator.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/proxy.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/proxy.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proxy.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/proxy.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/run_cpp/run_coordinator.cpp.o -c /home/gengxiaotong/CoupLRC/project/run_cpp/run_coordinator.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/run_cpp/run_coordinator.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/run_cpp/run_coordinator.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/toolbox.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/toolbox.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/toolbox.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/toolbox.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/tinyxml2.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/tinyxml2.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/tinyxml2.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/tinyxml2.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/datanode.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/datanode.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/datanode.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/datanode.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/lrc.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/lrc.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/lrc.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/lrc.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/config.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/config.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/config.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/config.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/encoder.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/encoder.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/encoder_layout.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/encoder_layout.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_coordinator.dir/src/recovery_strategy.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/recovery_strategy.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/recovery_strategy.cpp",
+  "output": "CMakeFiles/run_coordinator.dir/src/recovery_strategy.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/proto/coordinator.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/coordinator.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/coordinator.pb.cc",
+  "output": "CMakeFiles/run_proxy.dir/src/proto/coordinator.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/proto/coordinator.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/coordinator.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/coordinator.grpc.pb.cc",
+  "output": "CMakeFiles/run_proxy.dir/src/proto/coordinator.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/proto/proxy.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/proxy.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/proxy.pb.cc",
+  "output": "CMakeFiles/run_proxy.dir/src/proto/proxy.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/proto/proxy.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/proxy.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/proxy.grpc.pb.cc",
+  "output": "CMakeFiles/run_proxy.dir/src/proto/proxy.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/proto/datanode.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/datanode.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/datanode.pb.cc",
+  "output": "CMakeFiles/run_proxy.dir/src/proto/datanode.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/proto/datanode.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/datanode.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/datanode.grpc.pb.cc",
+  "output": "CMakeFiles/run_proxy.dir/src/proto/datanode.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/client.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/client.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/client.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/client.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/coordinator.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/coordinator.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/coordinator.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/coordinator.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/proxy.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/proxy.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proxy.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/proxy.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/run_cpp/run_proxy.cpp.o -c /home/gengxiaotong/CoupLRC/project/run_cpp/run_proxy.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/run_cpp/run_proxy.cpp",
+  "output": "CMakeFiles/run_proxy.dir/run_cpp/run_proxy.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/toolbox.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/toolbox.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/toolbox.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/toolbox.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/tinyxml2.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/tinyxml2.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/tinyxml2.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/tinyxml2.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/datanode.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/datanode.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/datanode.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/datanode.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/lrc.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/lrc.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/lrc.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/lrc.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/config.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/config.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/config.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/config.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/encoder.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/encoder.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/encoder_layout.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/encoder_layout.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_proxy.dir/src/recovery_strategy.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/recovery_strategy.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/recovery_strategy.cpp",
+  "output": "CMakeFiles/run_proxy.dir/src/recovery_strategy.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/proto/coordinator.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/coordinator.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/coordinator.pb.cc",
+  "output": "CMakeFiles/run_datanode.dir/src/proto/coordinator.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/proto/coordinator.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/coordinator.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/coordinator.grpc.pb.cc",
+  "output": "CMakeFiles/run_datanode.dir/src/proto/coordinator.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/proto/proxy.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/proxy.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/proxy.pb.cc",
+  "output": "CMakeFiles/run_datanode.dir/src/proto/proxy.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/proto/proxy.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/proxy.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/proxy.grpc.pb.cc",
+  "output": "CMakeFiles/run_datanode.dir/src/proto/proxy.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/proto/datanode.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/datanode.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/datanode.pb.cc",
+  "output": "CMakeFiles/run_datanode.dir/src/proto/datanode.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/proto/datanode.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/datanode.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/datanode.grpc.pb.cc",
+  "output": "CMakeFiles/run_datanode.dir/src/proto/datanode.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/client.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/client.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/client.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/client.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/coordinator.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/coordinator.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/coordinator.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/coordinator.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/proxy.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/proxy.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proxy.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/proxy.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/run_cpp/run_datanode.cpp.o -c /home/gengxiaotong/CoupLRC/project/run_cpp/run_datanode.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/run_cpp/run_datanode.cpp",
+  "output": "CMakeFiles/run_datanode.dir/run_cpp/run_datanode.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/toolbox.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/toolbox.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/toolbox.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/toolbox.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/tinyxml2.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/tinyxml2.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/tinyxml2.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/tinyxml2.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/datanode.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/datanode.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/datanode.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/datanode.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/lrc.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/lrc.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/lrc.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/lrc.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/config.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/config.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/config.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/config.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/encoder.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/encoder.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/encoder_layout.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/encoder_layout.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/run_datanode.dir/src/recovery_strategy.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/recovery_strategy.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/recovery_strategy.cpp",
+  "output": "CMakeFiles/run_datanode.dir/src/recovery_strategy.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/proto/coordinator.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/coordinator.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/coordinator.pb.cc",
+  "output": "CMakeFiles/main_client.dir/src/proto/coordinator.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/proto/coordinator.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/coordinator.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/coordinator.grpc.pb.cc",
+  "output": "CMakeFiles/main_client.dir/src/proto/coordinator.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/proto/proxy.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/proxy.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/proxy.pb.cc",
+  "output": "CMakeFiles/main_client.dir/src/proto/proxy.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/proto/proxy.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/proxy.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/proxy.grpc.pb.cc",
+  "output": "CMakeFiles/main_client.dir/src/proto/proxy.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/proto/datanode.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/datanode.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/datanode.pb.cc",
+  "output": "CMakeFiles/main_client.dir/src/proto/datanode.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/proto/datanode.grpc.pb.cc.o -c /home/gengxiaotong/CoupLRC/project/src/proto/datanode.grpc.pb.cc",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proto/datanode.grpc.pb.cc",
+  "output": "CMakeFiles/main_client.dir/src/proto/datanode.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/client.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/client.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/client.cpp",
+  "output": "CMakeFiles/main_client.dir/src/client.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/coordinator.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/coordinator.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/coordinator.cpp",
+  "output": "CMakeFiles/main_client.dir/src/coordinator.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/proxy.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/proxy.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/proxy.cpp",
+  "output": "CMakeFiles/main_client.dir/src/proxy.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/run_cpp/main_client.cpp.o -c /home/gengxiaotong/CoupLRC/project/run_cpp/main_client.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/run_cpp/main_client.cpp",
+  "output": "CMakeFiles/main_client.dir/run_cpp/main_client.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/toolbox.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/toolbox.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/toolbox.cpp",
+  "output": "CMakeFiles/main_client.dir/src/toolbox.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/tinyxml2.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/tinyxml2.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/tinyxml2.cpp",
+  "output": "CMakeFiles/main_client.dir/src/tinyxml2.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/datanode.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/datanode.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/datanode.cpp",
+  "output": "CMakeFiles/main_client.dir/src/datanode.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/lrc.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/lrc.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/lrc.cpp",
+  "output": "CMakeFiles/main_client.dir/src/lrc.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/config.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/config.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/config.cpp",
+  "output": "CMakeFiles/main_client.dir/src/config.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/encoder.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "output": "CMakeFiles/main_client.dir/src/encoder.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/encoder_layout.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "output": "CMakeFiles/main_client.dir/src/encoder_layout.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++ -DCARES_STATICLIB -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -isystem /home/gengxiaotong/CoupLRC/project/third_party/grpc/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/main_client.dir/src/recovery_strategy.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/recovery_strategy.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/recovery_strategy.cpp",
+  "output": "CMakeFiles/main_client.dir/src/recovery_strategy.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++  -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/layout_test.dir/tests/layout.cpp.o -c /home/gengxiaotong/CoupLRC/project/tests/layout.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/tests/layout.cpp",
+  "output": "CMakeFiles/layout_test.dir/tests/layout.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++  -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/layout_test.dir/src/encoder_layout.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "output": "CMakeFiles/layout_test.dir/src/encoder_layout.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++  -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/recovery_plan_test.dir/tests/recovery_plan_test.cpp.o -c /home/gengxiaotong/CoupLRC/project/tests/recovery_plan_test.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/tests/recovery_plan_test.cpp",
+  "output": "CMakeFiles/recovery_plan_test.dir/tests/recovery_plan_test.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++  -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/recovery_plan_test.dir/src/encoder_layout.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder_layout.cpp",
+  "output": "CMakeFiles/recovery_plan_test.dir/src/encoder_layout.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++  -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/recovery_plan_test.dir/src/recovery_strategy.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/recovery_strategy.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/recovery_strategy.cpp",
+  "output": "CMakeFiles/recovery_plan_test.dir/src/recovery_strategy.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++  -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/recovery_plan_test.dir/src/encoder.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "output": "CMakeFiles/recovery_plan_test.dir/src/encoder.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++  -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/encode_benchmark.dir/tests/encode_benchmark.cpp.o -c /home/gengxiaotong/CoupLRC/project/tests/encode_benchmark.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/tests/encode_benchmark.cpp",
+  "output": "CMakeFiles/encode_benchmark.dir/tests/encode_benchmark.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++  -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/encode_benchmark.dir/src/config.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/config.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/config.cpp",
+  "output": "CMakeFiles/encode_benchmark.dir/src/config.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++  -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/encode_benchmark.dir/src/tinyxml2.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/tinyxml2.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/tinyxml2.cpp",
+  "output": "CMakeFiles/encode_benchmark.dir/src/tinyxml2.cpp.o"
+},
+{
+  "directory": "/home/gengxiaotong/CoupLRC/project/cmake/build",
+  "command": "/usr/bin/c++  -I/home/gengxiaotong/CoupLRC/project/include -I/home/gengxiaotong/CoupLRC/project/src/proto -I/home/gengxiaotong/CoupLRC/project/third_party/asio/include -I/home/gengxiaotong/CoupLRC/project/third_party/gf-complete/include -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include/jerasure -I/home/gengxiaotong/CoupLRC/project/third_party/jerasure/include -gdwarf-4 -gstrict-dwarf -g -Wall -std=c++17 -DASIO_STANDALONE -O3 -funroll-loops -fdata-sections -ffunction-sections -funroll-loops -ftree-vectorize -march=native -std=gnu++17 -o CMakeFiles/encode_benchmark.dir/src/encoder.cpp.o -c /home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "file": "/home/gengxiaotong/CoupLRC/project/src/encoder.cpp",
+  "output": "CMakeFiles/encode_benchmark.dir/src/encoder.cpp.o"
+}
+]

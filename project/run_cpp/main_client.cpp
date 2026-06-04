@@ -278,28 +278,27 @@ int main(int argc, char **argv)
     */
     // for multi block recovery (test blocks 0 and 1)
     
-    // {
-    //     std::vector<std::chrono::duration<double>> multi_block_recovery_time_spans;
-    //     std::cout << "Multi block recovery test start (blocks 0, 1)" << std::endl;
-    //     for(int i = 0; i < 10; i++){
-    //         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    //         client.multi_block_recovery(0, {0,1}, {0}); // to optimize recovery time, we can globally recover blocks 0 first
-    //         client.recovery(0, 1); // then recover block 1 locally
-    //         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    //         std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    //         multi_block_recovery_time_spans.push_back(time_span);
-    //         std::cout << "[" << i << "th] Multi block recovery time: " << time_span.count() << "s" << std::endl;
-    //         //sleep(2);
-    //     }
-    //     std::chrono::duration<double> multi_block_recovery_total_time_span = std::accumulate(multi_block_recovery_time_spans.begin(), multi_block_recovery_time_spans.end(), std::chrono::duration<double>(0));
-    //     std::chrono::duration<double> multi_block_recovery_max_time_span = *std::max_element(multi_block_recovery_time_spans.begin(), multi_block_recovery_time_spans.end());
-    //     std::chrono::duration<double> multi_block_recovery_min_time_span = *std::min_element(multi_block_recovery_time_spans.begin(), multi_block_recovery_time_spans.end());
-    //     std::cout << "Average time: " << multi_block_recovery_total_time_span.count() / multi_block_recovery_time_spans.size() << std::endl;
-    //     std::cout << "Max time: "<< multi_block_recovery_max_time_span.count() << std::endl;
-    //     std::cout << "Min time: "<< multi_block_recovery_min_time_span.count() << std::endl;
-    //     std::cout << "Multi block recovery test end" << std::endl;
-    //     std::cout << std::endl;
-    // }
+    {
+        std::vector<std::chrono::duration<double>> multi_block_recovery_time_spans;
+        std::cout << "Multi block recovery test start (blocks 0, 1)" << std::endl;
+        for(int i = 0; i < 10; i++){
+            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+            client.multi_block_recovery(0, {0, 1});
+            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            multi_block_recovery_time_spans.push_back(time_span);
+            std::cout << "[" << i << "th] Multi block recovery time: " << time_span.count() << "s" << std::endl;
+            //sleep(2);
+        }
+        std::chrono::duration<double> multi_block_recovery_total_time_span = std::accumulate(multi_block_recovery_time_spans.begin(), multi_block_recovery_time_spans.end(), std::chrono::duration<double>(0));
+        std::chrono::duration<double> multi_block_recovery_max_time_span = *std::max_element(multi_block_recovery_time_spans.begin(), multi_block_recovery_time_spans.end());
+        std::chrono::duration<double> multi_block_recovery_min_time_span = *std::min_element(multi_block_recovery_time_spans.begin(), multi_block_recovery_time_spans.end());
+        std::cout << "Average time: " << multi_block_recovery_total_time_span.count() / multi_block_recovery_time_spans.size() << std::endl;
+        std::cout << "Max time: "<< multi_block_recovery_max_time_span.count() << std::endl;
+        std::cout << "Min time: "<< multi_block_recovery_min_time_span.count() << std::endl;
+        std::cout << "Multi block recovery test end" << std::endl;
+        std::cout << std::endl;
+    }
     
     // Multi block recovery: first cluster (rack) fails under current layout + placement
     // {
@@ -372,70 +371,71 @@ int main(int argc, char **argv)
 
     
     // Full node repair: rand over [0, ClusterNum*DatanodeNumPerCluster) (replaces legacy 19*30)
-    std::cout << "Full node repair test start" << std::endl;
-    const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
-    const int node_num = 5;
-    std::vector<int> node_ids;
-    if (total_nodes <= 0)
-    {
-        std::cout << "Invalid ClusterNum/DatanodeNumPerCluster, skip full node repair test" << std::endl;
-    }
-    else
-    {
-        while (node_ids.size() < static_cast<size_t>(node_num))
-        {
-            int random_id = rand() % total_nodes;
-            if (std::find(node_ids.begin(), node_ids.end(), random_id) == node_ids.end())
-                node_ids.push_back(random_id);
-        }
-        std::cout << "node_id range [0, " << (total_nodes - 1) << "], sampled nodes:";
-        print_block_ids("", node_ids);
+    // std::cout << "Full node repair test start" << std::endl;
+    // const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
+    // const int node_num = 5;
+    // std::vector<int> node_ids;
+    // if (total_nodes <= 0)
+    // {
+    //     std::cout << "Invalid ClusterNum/DatanodeNumPerCluster, skip full node repair test" << std::endl;
+    // }
+    // else
+    // {
+    //     while (node_ids.size() < static_cast<size_t>(node_num))
+    //     {
+    //         int random_id = rand() % total_nodes;
+    //         if (std::find(node_ids.begin(), node_ids.end(), random_id) == node_ids.end())
+    //             node_ids.push_back(random_id);
+    //     }
+    //     std::cout << "node_id range [0, " << (total_nodes - 1) << "], sampled nodes:";
+    //     print_block_ids("", node_ids);
 
-        std::vector<double> full_node_recovery_speeds;
-        for (int i = 0; i < node_num; i++)
-        {
-            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-            int block_num = client.recovery_full_node(node_ids[i]);
-            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> time_span =
-                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-            if (block_num <= 0)
-            {
-                std::cout << "  node " << node_ids[i] << ": skip (no blocks on node or RPC failed)"
-                          << std::endl;
-                continue;
-            }
-            if (time_span.count() <= 0)
-                continue;
-            double total_size = static_cast<double>(block_num) * block_size;
-            double speed = total_size / time_span.count();
-            full_node_recovery_speeds.push_back(speed);
-            std::cout << "  node " << node_ids[i] << ": " << block_num << " blocks, "
-                      << speed << " MB/s" << std::endl;
-        }
-        if (full_node_recovery_speeds.empty())
-        {
-            std::cout << "No successful full-node recovery samples (all nodes empty?)" << std::endl;
-        }
-        else
-        {
-            std::cout << "Average speed: "
-                      << std::accumulate(full_node_recovery_speeds.begin(),
-                                         full_node_recovery_speeds.end(), 0.0) /
-                             full_node_recovery_speeds.size()
-                      << " MB/s" << std::endl;
-            std::cout << "Max speed: "
-                      << *std::max_element(full_node_recovery_speeds.begin(),
-                                           full_node_recovery_speeds.end())
-                      << " MB/s" << std::endl;
-            std::cout << "Min speed: "
-                      << *std::min_element(full_node_recovery_speeds.begin(),
-                                           full_node_recovery_speeds.end())
-                      << " MB/s" << std::endl;
-        }
-        std::cout << "Full node repair test end" << std::endl;
-        std::cout << std::endl;
-    }
+    //     std::vector<double> full_node_recovery_speeds;
+    //     for (int i = 0; i < node_num; i++)
+    //     {
+    //         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    //         int block_num = client.recovery_full_node(node_ids[i]);
+    //         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    //         std::chrono::duration<double> time_span =
+    //             std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    //         if (block_num <= 0)
+    //         {
+    //             std::cout << "  node " << node_ids[i] << ": skip (no blocks on node or RPC failed)"
+    //                       << std::endl;
+    //             continue;
+    //         }
+    //         if (time_span.count() <= 0)
+    //             continue;
+    //         double total_size = static_cast<double>(block_num) * block_size;
+    //         double speed = total_size / time_span.count();
+    //         full_node_recovery_speeds.push_back(speed);
+    //         std::cout << "  node " << node_ids[i] << ": " << block_num << " blocks, "
+    //                   << speed << " MB/s" << std::endl;
+    //     }
+    //     if (full_node_recovery_speeds.empty())
+    //     {
+    //         std::cout << "No successful full-node recovery samples (all nodes empty?)" << std::endl;
+    //     }
+    //     else
+    //     {
+    //         std::cout << "Average speed: "
+    //                   << std::accumulate(full_node_recovery_speeds.begin(),
+    //                                      full_node_recovery_speeds.end(), 0.0) /
+    //                          full_node_recovery_speeds.size()
+    //                   << " MB/s" << std::endl;
+    //         std::cout << "Max speed: "
+    //                   << *std::max_element(full_node_recovery_speeds.begin(),
+    //                                        full_node_recovery_speeds.end())
+    //                   << " MB/s" << std::endl;
+    //         std::cout << "Min speed: "
+    //                   << *std::min_element(full_node_recovery_speeds.begin(),
+    //                                        full_node_recovery_speeds.end())
+    //                   << " MB/s" << std::endl;
+    //     }
+    //     std::cout << "Full node repair test end" << std::endl;
+    //     std::cout << std::endl;
+    // }
+
     //for decode test
     // std::cout << "Decode test start" << std::endl;
     // std::vector<double> decode_time_spans;
