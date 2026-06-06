@@ -13,6 +13,7 @@
 #include "config.h"
 #include "toolbox.h"
 #include <vector>
+#include <set>
 namespace ECProject
 {
   class Client
@@ -99,6 +100,13 @@ namespace ECProject
   private:
     bool call_global_recovery(int stripe_id, const std::vector<int> &all_failed_block_ids,
                               const std::vector<int> &recovery_block_ids);
+    // Scheme B: clusters touched by a single-block recovery (sources + dest). Empty = cannot
+    // determine (caller should serialize). Used to decide if two recoveries can run in parallel.
+    std::set<int> recovery_cluster_set(int stripe_id, int failed_block_id);
+    // Relaxed Scheme B: the single write-back (dest) cluster of a recovery. The only real
+    // concurrency hazard is two recoveries sharing the same dest proxy (single shared acceptor);
+    // shared read-only source clusters are safe. Returns -1 if it cannot be determined.
+    int recovery_dest_cluster(int stripe_id, int failed_block_id);
     std::unique_ptr<coordinator_proto::coordinatorService::Stub> m_coordinator_ptr;
     std::string m_coordinatorIpPort;
     std::string m_clientIPForGet;

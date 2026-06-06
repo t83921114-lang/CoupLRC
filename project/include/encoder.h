@@ -165,6 +165,21 @@ namespace ECProject
                                 int &rows, int &cols,
                                 const std::vector<int> *recovery_block_indexes = nullptr);
 
+    // LotusLRC true two-block same-local-group recovery plan (one round, local only).
+    // Given exactly two failed blocks in the same local group, compute:
+    // - chosen_sources: a minimal set of surviving local-group blocks (a basis of the
+    //   local-group generator-row space) to read;
+    // - full_coeffs (row-major, size recovery_order.size() * chosen_sources.size()):
+    //   GF coefficients so that block(recovery_order[rr]) = sum_j full_coeffs[rr][j] * block(chosen_sources[j]).
+    // Returns true on success; false if the two blocks are not in the same local group
+    // or the local span cannot reconstruct a failed block (caller should fall back to
+    // the global k x k plan).
+    bool get_lotus_two_block_local_plan(int k, int r, int z,
+                                        const std::vector<int> &failed_block_indexes,
+                                        const std::vector<int> &recovery_order,
+                                        std::vector<int> &chosen_sources,
+                                        std::vector<unsigned char> &full_coeffs);
+
     /* Data layout / placement: per-group block counts for data, global parity, local parity (by code_type) */
     std::vector<int> get_data_block_num_per_group(int k, int r, int z, const std::string &code_type);
     std::vector<int> get_global_parity_block_num_per_group(int k, int r, int z, const std::string &code_type);

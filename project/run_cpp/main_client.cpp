@@ -141,7 +141,7 @@ int main(int argc, char **argv)
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
     
-    int stripe_num = 20;
+    int stripe_num = 5;
     size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
     std::cout << "Starting set stripe operation" << std::endl;
     std::chrono::high_resolution_clock::time_point set_start = std::chrono::high_resolution_clock::now();
@@ -283,7 +283,7 @@ int main(int argc, char **argv)
         std::cout << "Multi block recovery test start (blocks 0, 1)" << std::endl;
         for(int i = 0; i < 10; i++){
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-            client.multi_block_recovery(0, {0, 1});
+            client.multi_block_recovery(0, {0, 12});
             std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
             multi_block_recovery_time_spans.push_back(time_span);

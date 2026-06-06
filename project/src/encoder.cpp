@@ -458,10 +458,17 @@ void ECProject::gen_lotuslrc_matrix(unsigned char *encode_matrix, int k, int r, 
     delete[] local_vector0;
     delete[] local_vector1;
 
+    // Split each global parity block (k + i) into the two local-parity rows of the
+    // local group that holds it. The last r local groups hold one global parity each,
+    // so global parity (k + i) belongs to local group (group_num - r + i), whose two
+    // local-parity rows are at (m + 2*lg) and (m + 2*lg + 1).
+    // assume one local group has at most one global parity block, may need to be
+    // adjusted for more general cases.
     for(int i = 0; i < r; i++){
+        int lg = group_num - r + i;
         for(int j = 0; j < k; j++){
-            encode_matrix[(m + group_num - r + i) * k + j] ^= encode_matrix[(k + i) * k + j]; // assume one local group has at most one global parity block, may need to be adjusted for more general cases
-            encode_matrix[(m + group_num - r + i + 1) * k + j] ^= encode_matrix[(k + i) * k + j];
+            encode_matrix[(m + 2 * lg) * k + j] ^= encode_matrix[(k + i) * k + j];
+            encode_matrix[(m + 2 * lg + 1) * k + j] ^= encode_matrix[(k + i) * k + j];
         }
     }
 

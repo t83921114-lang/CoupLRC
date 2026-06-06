@@ -180,6 +180,39 @@ add_executable(recovery_plan_test
     ${ASM_SOURCES}
 )
 
+# LotusLRC 同本地组双块本地修复系数验证（纯 GF 数学，无 gRPC / cluster）
+add_executable(lotus_2block_verify
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/lotus_2block_verify.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder_layout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder.cpp
+    ${ASM_SOURCES}
+)
+target_include_directories(lotus_2block_verify PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(lotus_2block_verify
+    -lpthread
+    -lJerasure
+    -lgf_complete
+)
+
+# 全码型单块修复正确性审计(纯 GF + decode_*,无 gRPC / cluster)
+add_executable(recovery_audit
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/recovery_audit.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder_layout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/recovery_strategy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder.cpp
+    ${ASM_SOURCES}
+)
+target_include_directories(recovery_audit PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(recovery_audit
+    -lpthread
+    -lJerasure
+    -lgf_complete
+)
+
 # Exp#7: pure encoding microbenchmark (no gRPC / cluster)
 add_executable(encode_benchmark
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/encode_benchmark.cpp

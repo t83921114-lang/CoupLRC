@@ -1607,32 +1607,6 @@ namespace ECProject
     return recovery_one_block_with_plan(stripe_id, failed_block_id, plan);
   }
 
-  bool CoordinatorImpl::recovery_lotus_two_blocks_same_local_group(int stripe_id, int failed_block_id0,
-                                                                  int failed_block_id1)
-  {
-    const int k = m_sys_config->k;
-    const int r = m_sys_config->r;
-    const int z = m_sys_config->z;
-    int first = std::min(failed_block_id0, failed_block_id1);
-    int second = std::max(failed_block_id0, failed_block_id1);
-    std::vector<std::pair<int, std::vector<int>>> plan;
-    try {
-      plan = ECProject::get_recovery_group_and_block_ids_lotuslrc_2block_recovery(k, r, z, first, second);
-    } catch (const std::exception &e) {
-      std::cout << "[Coordinator] Lotus two-block plan failed: " << e.what() << std::endl;
-      return false;
-    }
-    if (plan.empty()) {
-      std::cout << "[Coordinator] Lotus two-block: empty recovery plan" << std::endl;
-      return false;
-    }
-    std::cout << "[Coordinator] Lotus two-block same local group: recover " << first
-              << " with 2-block plan, then " << second << " with single-block plan" << std::endl;
-    if (!recovery_one_block_with_plan(stripe_id, first, plan))
-      return false;
-    return recovery_one_block(stripe_id, second);
-  }
-
   bool CoordinatorImpl::recovery_one_block_with_plan(int stripe_id, int failed_block_id,
       const std::vector<std::pair<int, std::vector<int>>> &plan)
   {
@@ -2374,13 +2348,26 @@ namespace ECProject
       return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "no blocks to recover");
     }
 
+    // LotusLRC two failed blocks in the same local group: the global decode plan below
+    // automatically uses a one-round local-group plan (each helper returns 2 x BlockSize,
+    // dest combines both blocks). Probe here only to log which path is taken; if the
+    // local span is insufficient it falls back to the generic global k x k recovery.
     if (all_failed_num == 2 && recover_num == 2 &&
         m_sys_config->CodeType == "LotusLRC" &&
         ECProject::blocks_same_local_group(m_sys_config->CodeType, m_sys_config->k, m_sys_config->r,
                                            m_sys_config->z, all_failed[0], all_failed[1])) {
-      if (recovery_lotus_two_blocks_same_local_group(stripe_id, all_failed[0], all_failed[1]))
-        return grpc::Status::OK;
-      return grpc::Status(grpc::StatusCode::INTERNAL, "Lotus two-block same local group recovery failed");
+      std::vector<int> probe_sources;
+      std::vector<unsigned char> probe_coeffs;
+      bool local_oneround = ECProject::get_lotus_two_block_local_plan(
+          m_sys_config->k, m_sys_config->r, m_sys_config->z, all_failed, recover,
+          probe_sources, probe_coeffs);
+      if (local_oneround) {
+        std::cout << "[Coordinator] LotusLRC same-local-group two-block: ONE-ROUND LOCAL recovery, "
+                  << "reading " << probe_sources.size() << " local-group source blocks" << std::endl;
+      } else {
+        std::cout << "[Coordinator] LotusLRC same-local-group two-block: local span insufficient, "
+                  << "FALLBACK to GLOBAL recovery" << std::endl;
+      }
     }
 
     std::vector<int> node_ids;

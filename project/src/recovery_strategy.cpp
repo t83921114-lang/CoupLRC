@@ -51,6 +51,134 @@ TwoBlockRecoveryMode select_two_block_recovery_mode(const std::string &code_type
     return TwoBlockRecoveryMode::GlobalThenSingle;
 }
 
+namespace {
+
+// Solve A x = y over GF(2^8). A is (numEq x numVar) row-major, y is length numEq.
+// Returns true and fills x (length numVar) iff a consistent solution exists.
+bool gf_solve_rect(std::vector<unsigned char> A, std::vector<unsigned char> y,
+                   int numEq, int numVar, std::vector<unsigned char> &x)
+{
+    std::vector<int> pivot_col(numEq, -1);
+    int row = 0;
+    for (int col = 0; col < numVar && row < numEq; ++col) {
+        int sel = -1;
+        for (int rr = row; rr < numEq; ++rr) {
+            if (A[rr * numVar + col] != 0) { sel = rr; break; }
+        }
+        if (sel == -1) continue;
+        if (sel != row) {
+            for (int c = 0; c < numVar; ++c)
+                std::swap(A[row * numVar + c], A[sel * numVar + c]);
+            std::swap(y[row], y[sel]);
+        }
+        unsigned char inv = gf_inv(A[row * numVar + col]);
+        for (int c = 0; c < numVar; ++c)
+            A[row * numVar + c] = gf_mul(A[row * numVar + c], inv);
+        y[row] = gf_mul(y[row], inv);
+        for (int rr = 0; rr < numEq; ++rr) {
+            if (rr == row) continue;
+            unsigned char f = A[rr * numVar + col];
+            if (f == 0) continue;
+            for (int c = 0; c < numVar; ++c)
+                A[rr * numVar + c] ^= gf_mul(f, A[row * numVar + c]);
+            y[rr] ^= gf_mul(f, y[row]);
+        }
+        pivot_col[row] = col;
+        ++row;
+    }
+    for (int rr = 0; rr < numEq; ++rr) {
+        bool all_zero = true;
+        for (int c = 0; c < numVar; ++c)
+            if (A[rr * numVar + c] != 0) { all_zero = false; break; }
+        if (all_zero && y[rr] != 0) return false; // inconsistent
+    }
+    x.assign(numVar, 0);
+    for (int rr = 0; rr < numEq; ++rr)
+        if (pivot_col[rr] >= 0) x[pivot_col[rr]] = y[rr];
+    return true;
+}
+
+// Pick an independent subset (a basis) of the given candidate generator rows.
+// gen is the (k+r+z) x k generator matrix; each candidate is a block id (row index).
+std::vector<int> gf_pick_basis(const unsigned char *gen, int k, const std::vector<int> &candidates)
+{
+    std::vector<int> chosen;
+    std::vector<unsigned char> ech; // echelon rows, length k each
+    std::vector<int> pcol;
+    for (int cand : candidates) {
+        std::vector<unsigned char> row(gen + (size_t)cand * k, gen + (size_t)cand * k + k);
+        for (size_t i = 0; i < pcol.size(); ++i) {
+            unsigned char f = row[pcol[i]];
+            if (f == 0) continue;
+            for (int c = 0; c < k; ++c)
+                row[c] ^= gf_mul(f, ech[i * k + c]);
+        }
+        int piv = -1;
+        for (int c = 0; c < k; ++c) if (row[c] != 0) { piv = c; break; }
+        if (piv == -1) continue; // dependent on already-chosen rows
+        unsigned char inv = gf_inv(row[piv]);
+        for (int c = 0; c < k; ++c) row[c] = gf_mul(row[c], inv);
+        ech.insert(ech.end(), row.begin(), row.end());
+        pcol.push_back(piv);
+        chosen.push_back(cand);
+    }
+    return chosen;
+}
+
+} // namespace
+
+bool get_lotus_two_block_local_plan(int k, int r, int z,
+                                    const std::vector<int> &failed_block_indexes,
+                                    const std::vector<int> &recovery_order,
+                                    std::vector<int> &chosen_sources,
+                                    std::vector<unsigned char> &full_coeffs)
+{
+    chosen_sources.clear();
+    full_coeffs.clear();
+    if (failed_block_indexes.size() != 2) return false;
+    int f0 = failed_block_indexes[0];
+    int f1 = failed_block_indexes[1];
+    int lg0 = get_lotuslrc_block_id_to_local_group_id(k, r, z, f0);
+    int lg1 = get_lotuslrc_block_id_to_local_group_id(k, r, z, f1);
+    if (lg0 != lg1) return false;
+
+    const int nrows = k + r + z;
+    std::vector<unsigned char> gen((size_t)nrows * k, 0);
+    gen_lotuslrc_matrix(gen.data(), k, r, z);
+
+    // Surviving blocks of the failed blocks' local group.
+    std::vector<int> survivors;
+    for (int b = 0; b < nrows; ++b) {
+        if (b == f0 || b == f1) continue;
+        if (get_lotuslrc_block_id_to_local_group_id(k, r, z, b) == lg0)
+            survivors.push_back(b);
+    }
+
+    std::vector<int> chosen = gf_pick_basis(gen.data(), k, survivors);
+    const int D = static_cast<int>(chosen.size());
+    if (D == 0) return false;
+
+    const int R = static_cast<int>(recovery_order.size());
+    full_coeffs.assign((size_t)R * D, 0);
+    for (int rr = 0; rr < R; ++rr) {
+        int f = recovery_order[rr];
+        // Solve sum_i coeff_i * gen[chosen_i] = gen[f] (k equations, D unknowns).
+        std::vector<unsigned char> A((size_t)k * D, 0), y(k, 0);
+        for (int eq = 0; eq < k; ++eq) {
+            for (int i = 0; i < D; ++i)
+                A[(size_t)eq * D + i] = gen[(size_t)chosen[i] * k + eq];
+            y[eq] = gen[(size_t)f * k + eq];
+        }
+        std::vector<unsigned char> coeff;
+        if (!gf_solve_rect(std::move(A), std::move(y), k, D, coeff))
+            return false; // failed block not in local span -> caller falls back to global
+        for (int i = 0; i < D; ++i)
+            full_coeffs[(size_t)rr * D + i] = coeff[i];
+    }
+    chosen_sources = std::move(chosen);
+    return true;
+}
+
 bool get_global_decode_plan(int k, int r, int z, const std::string &code_type,
                             const std::vector<int> &failed_block_indexes,
                             std::vector<int> &global_decode_block_indexes,
@@ -127,6 +255,38 @@ bool get_global_decode_plan(int k, int r, int z, const std::string &code_type,
 
             return true;
         }
+    }
+
+    // LotusLRC: true two-block same-local-group local recovery (one round).
+    // Reads only this local group's surviving blocks and produces a 2-row coefficient
+    // matrix, so the existing multi-block transport returns 2 x BlockSize per helper.
+    // Falls through to the generic global k x k plan if the local span is insufficient.
+    if (code_type == "LotusLRC" && failed_block_indexes.size() == 2) {
+        std::vector<int> chosen;
+        std::vector<unsigned char> full_coeffs;
+        if (get_lotus_two_block_local_plan(k, r, z, failed_block_indexes, recovery_order,
+                                           chosen, full_coeffs)) {
+            global_decode_block_indexes = chosen;
+            rows = R;
+            cols = 0;
+            const int D = static_cast<int>(chosen.size());
+            if (local_source_block_ids != nullptr && local_matrix != nullptr) {
+                cols = static_cast<int>(local_source_block_ids->size());
+                for (int rr = 0; rr < R; ++rr) {
+                    for (int i = 0; i < cols; ++i) {
+                        int local_bid = (*local_source_block_ids)[i];
+                        int j = -1;
+                        for (int jj = 0; jj < D; ++jj) {
+                            if (chosen[jj] == local_bid) { j = jj; break; }
+                        }
+                        local_matrix[rr * cols + i] =
+                            (j >= 0) ? full_coeffs[(size_t)rr * D + j] : 0;
+                    }
+                }
+            }
+            return true;
+        }
+        // else: not locally recoverable -> fall through to generic global plan
     }
 
     int m = k + r;

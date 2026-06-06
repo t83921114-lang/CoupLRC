@@ -162,7 +162,6 @@ namespace ECProject
     bool recovery_one_block(int stripe_id, int failed_block_id);
     bool recovery_one_block_with_plan(int stripe_id, int failed_block_id,
         const std::vector<std::pair<int, std::vector<int>>> &plan);
-    bool recovery_lotus_two_blocks_same_local_group(int stripe_id, int failed_block_id0, int failed_block_id1);
     bool recovery_one_block_breakdown(int stripe_id, int failed_block_id, 
       std::vector<double> &disk_io_start_time, std::vector<double> &disk_io_end_time, std::vector<double> &decode_start_time, std::vector<double> &decode_end_time,
       std::vector<double> &network_start_time, std::vector<double> &network_end_time, double &cross_rack_network_time, double &cross_rack_xor_time,
