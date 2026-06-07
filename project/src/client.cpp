@@ -731,6 +731,22 @@ namespace ECProject
     return reply.block_num();
   }
 
+  int Client::recovery_two_nodes(int node_id_0, int node_id_1)
+  {
+    grpc::ClientContext context;
+    coordinator_proto::TwoNodeIdsFromClient request;
+    request.set_node_id_0(node_id_0);
+    request.set_node_id_1(node_id_1);
+
+    coordinator_proto::RepBlockNum reply;
+    grpc::Status status = m_coordinator_ptr->twoNodeRecovery(&context, request, &reply);
+    if (!status.ok()) {
+      std::cout << "[Client] recovery two nodes failed!" << std::endl;
+      return -1;
+    }
+    return reply.block_num();
+  }
+
   std::shared_ptr<char[]> Client::get(std::string key, size_t &data_size)
   {
     grpc::ClientContext context;

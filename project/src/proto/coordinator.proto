@@ -49,6 +49,7 @@ service coordinatorService {
   rpc getRecovery(KeyAndClientIP) returns (RecoveryReply) {};
   rpc getRecoveryBreakdown(KeyAndClientIP) returns (RecoveryReply) {};
   rpc fullNodeRecovery(NodeIdFromClient) returns (RepBlockNum) {};
+  rpc twoNodeRecovery(TwoNodeIdsFromClient) returns (RepBlockNum) {};
   rpc globalRecovery(StripeIdAndBlockIDsFromClient) returns (RecoveryReply) {};
   // delete
   rpc delByKey(KeyFromClient) returns (RepIfDeling) {};
@@ -162,6 +163,11 @@ message StripeIdAndBlockIDsFromClient {
 
 message NodeIdFromClient {
   int32 node_id = 1;
+}
+
+message TwoNodeIdsFromClient {
+  int32 node_id_0 = 1;
+  int32 node_id_1 = 2;
 }
 
 message RepIfDeling {

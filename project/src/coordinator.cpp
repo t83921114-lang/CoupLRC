@@ -2258,6 +2258,150 @@ namespace ECProject
     }
   }
 
+  namespace {
+    int block_to_placement_group_id(const std::string &code, int k, int r, int z, int bid)
+    {
+      try {
+        if (code == "AzureLRC")   return ECProject::get_azurelrc_block_id_to_group_id(k, r, z).at(bid);
+        if (code == "OptimalLRC") return ECProject::get_optimal_lrc_block_id_to_group_id(k, r, z).at(bid);
+        if (code == "UniformLRC") return ECProject::get_uniform_lrc_block_id_to_group_id(k, r, z).at(bid);
+        if (code == "LotusLRC")   return ECProject::get_lotuslrc_block_id_to_group_id(k, r, z).at(bid);
+      } catch (const std::exception &) {
+        return -1;
+      }
+      return -1;
+    }
+
+    int recovery_dest_cluster(const ECProject::Config *cfg, int stripe_id, int failed_block_id)
+    {
+      const std::string &code = cfg->CodeType;
+      const int k = cfg->k, r = cfg->r, z = cfg->z;
+      const int CN = cfg->ClusterNum;
+      if (CN <= 0)
+        return -1;
+      int fg = block_to_placement_group_id(code, k, r, z, failed_block_id);
+      if (fg < 0)
+        return -1;
+      return ((stripe_id + fg) % CN + CN) % CN;
+    }
+  } // namespace
+
+  bool CoordinatorImpl::stripe_recovery_for_failed_blocks(int stripe_id,
+                                                          const std::vector<int> &failed_blocks)
+  {
+    const int n = static_cast<int>(failed_blocks.size());
+    if (n == 0)
+      return true;
+    if (n == 1)
+      return recovery_one_block(stripe_id, failed_blocks[0]);
+
+    if (n != 2) {
+      std::cout << "[Coordinator] stripe " << stripe_id << ": " << n
+                << " failed blocks on two nodes (>2), serial single-block recovery" << std::endl;
+      bool ok = true;
+      for (int bid : failed_blocks)
+        ok = recovery_one_block(stripe_id, bid) && ok;
+      return ok;
+    }
+
+    const int f0 = failed_blocks[0];
+    const int f1 = failed_blocks[1];
+    const std::string &code_type = m_sys_config->CodeType;
+    const int k = m_sys_config->k;
+    const int r = m_sys_config->r;
+    const int z = m_sys_config->z;
+
+    ECProject::TwoBlockRecoveryMode mode =
+        ECProject::select_two_block_recovery_mode(code_type, k, r, z, f0, f1);
+
+    switch (mode) {
+    case ECProject::TwoBlockRecoveryMode::TwoSingleBlock: {
+      int d0 = recovery_dest_cluster(m_sys_config, stripe_id, f0);
+      int d1 = recovery_dest_cluster(m_sys_config, stripe_id, f1);
+      if (d0 >= 0 && d1 >= 0 && d0 != d1) {
+        std::cout << "[Coordinator] stripe " << stripe_id
+                  << " two-block: different local groups, PARALLEL (dest " << d0 << "," << d1
+                  << ")" << std::endl;
+        bool ok0 = false, ok1 = false;
+        std::thread t0([&]() { ok0 = recovery_one_block(stripe_id, f0); });
+        std::thread t1([&]() { ok1 = recovery_one_block(stripe_id, f1); });
+        t0.join();
+        t1.join();
+        return ok0 && ok1;
+      }
+      std::cout << "[Coordinator] stripe " << stripe_id
+                << " two-block: different local groups, SERIAL (d0=" << d0 << ", d1=" << d1
+                << ")" << std::endl;
+      return recovery_one_block(stripe_id, f0) && recovery_one_block(stripe_id, f1);
+    }
+
+    case ECProject::TwoBlockRecoveryMode::GlobalThenSingle: {
+      const int first = std::min(f0, f1);
+      const int second = std::max(f0, f1);
+      std::cout << "[Coordinator] stripe " << stripe_id
+                << " two-block: same local group (non-Lotus), global " << first << " then single "
+                << second << std::endl;
+      return execute_global_recovery(stripe_id, {f0, f1}, {first}) &&
+             recovery_one_block(stripe_id, second);
+    }
+
+    case ECProject::TwoBlockRecoveryMode::LotusSameGroupPlanBased:
+      std::cout << "[Coordinator] stripe " << stripe_id
+                << " two-block: Lotus same local group, one-round local recovery" << std::endl;
+      return execute_global_recovery(stripe_id, {f0, f1}, {});
+    }
+    return false;
+  }
+
+  grpc::Status CoordinatorImpl::twoNodeRecovery(
+      grpc::ServerContext *context,
+      const coordinator_proto::TwoNodeIdsFromClient *request,
+      coordinator_proto::RepBlockNum *response)
+  {
+    const int node_id_0 = request->node_id_0();
+    const int node_id_1 = request->node_id_1();
+    if (m_node_table.find(node_id_0) == m_node_table.end() ||
+        m_node_table.find(node_id_1) == m_node_table.end()) {
+      return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "invalid node id");
+    }
+
+    int total_blocks = 0;
+    std::vector<bool> stripe_results;
+    for (auto it = m_stripe_table.begin(); it != m_stripe_table.end(); ++it) {
+      const int stripe_id = it->first;
+      Stripe &stripe = it->second;
+      std::vector<int> failed_on_nodes;
+      for (size_t i = 0; i < stripe.blocks.size(); ++i) {
+        const int nid = stripe.blocks[i]->map2node;
+        if (nid == node_id_0 || nid == node_id_1)
+          failed_on_nodes.push_back(stripe.blocks[i]->block_id);
+      }
+      if (failed_on_nodes.empty())
+        continue;
+
+      total_blocks += static_cast<int>(failed_on_nodes.size());
+      std::cout << "[Coordinator] two-node recovery stripe " << stripe_id << ": "
+                << failed_on_nodes.size() << " block(s) on nodes " << node_id_0 << "," << node_id_1
+                << std::endl;
+      stripe_results.push_back(stripe_recovery_for_failed_blocks(stripe_id, failed_on_nodes));
+    }
+
+    if (total_blocks == 0) {
+      std::cout << "[Coordinator] no blocks on nodes " << node_id_0 << "," << node_id_1 << std::endl;
+      response->set_block_num(0);
+      return grpc::Status::OK;
+    }
+
+    response->set_block_num(total_blocks);
+    const bool all_success =
+        stripe_results.empty() ||
+        std::all_of(stripe_results.begin(), stripe_results.end(), [](bool ok) { return ok; });
+    std::cout << "[Coordinator] two-node recovery of " << node_id_0 << "," << node_id_1
+              << " containing " << total_blocks << " blocks, "
+              << (all_success ? "all succeeded" : "some failed") << std::endl;
+    return grpc::Status::OK;
+  }
+
   grpc::Status CoordinatorImpl::fullNodeRecovery(
     grpc::ServerContext *context,
     const coordinator_proto::NodeIdFromClient *request,
@@ -2315,28 +2459,20 @@ namespace ECProject
     return grpc::Status::OK;
   } 
 
-  grpc::Status CoordinatorImpl::globalRecovery(
-    grpc::ServerContext *context,
-    const coordinator_proto::StripeIdAndBlockIDsFromClient *request,
-    coordinator_proto::RecoveryReply *replyClient)
+  bool CoordinatorImpl::execute_global_recovery(int stripe_id,
+                                                const std::vector<int> &all_failed,
+                                                const std::vector<int> &recovery_block_ids)
   {
-    int stripe_id = request->stripe_id();
-    const int all_failed_num = request->block_ids_size();
-    std::vector<int> all_failed;
-    all_failed.reserve(static_cast<size_t>(all_failed_num));
-    for (int i = 0; i < all_failed_num; i++) {
-      all_failed.push_back(request->block_ids(i));
-    }
-    std::unordered_set<int> all_failed_set(all_failed.begin(), all_failed.end());
+    const int all_failed_num = static_cast<int>(all_failed.size());
     std::vector<int> recover;
-    if (request->recovery_block_ids_size() > 0) {
-      recover.reserve(static_cast<size_t>(request->recovery_block_ids_size()));
-      for (int i = 0; i < request->recovery_block_ids_size(); i++) {
-        int bid = request->recovery_block_ids(i);
+    if (!recovery_block_ids.empty()) {
+      std::unordered_set<int> all_failed_set(all_failed.begin(), all_failed.end());
+      recover.reserve(recovery_block_ids.size());
+      for (int bid : recovery_block_ids) {
         if (!all_failed_set.count(bid)) {
-          std::cout << "[Coordinator] globalRecovery: recovery_block_id " << bid << " not in block_ids" << std::endl;
-          return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-                              "recovery_block_ids must be subset of block_ids");
+          std::cout << "[Coordinator] execute_global_recovery: recovery_block_id " << bid
+                    << " not in all_failed" << std::endl;
+          return false;
         }
         recover.push_back(bid);
       }
@@ -2344,9 +2480,8 @@ namespace ECProject
       recover = all_failed;
     }
     const int recover_num = static_cast<int>(recover.size());
-    if (recover_num == 0) {
-      return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "no blocks to recover");
-    }
+    if (recover_num == 0)
+      return false;
 
     // LotusLRC two failed blocks in the same local group: the global decode plan below
     // automatically uses a one-round local-group plan (each helper returns 2 x BlockSize,
@@ -2370,21 +2505,15 @@ namespace ECProject
       }
     }
 
-    std::vector<int> node_ids;
-    for (int i = 0; i < all_failed_num; i++) {
-      node_ids.push_back(m_stripe_table[stripe_id].blocks[all_failed[i]]->map2node);
-    }
-    //int chosen_cluster_id = randomly_select_a_cluster(stripe_id);
-    //int chosen_node_id = randomly_select_a_node(chosen_cluster_id, stripe_id);
     std::vector<int> decode_block_ids;
     int rows = 0, cols = 0;
     std::cout << "[Coordinator] get global decode plan start" << std::endl;
     bool ifGetDecodePlanSuccess = ECProject::get_global_decode_plan(
         m_sys_config->k, m_sys_config->r, m_sys_config->z, m_sys_config->CodeType,
         all_failed, decode_block_ids, nullptr, nullptr, rows, cols, nullptr);
-    if(!ifGetDecodePlanSuccess){
+    if (!ifGetDecodePlanSuccess) {
       std::cout << "[Coordinator] get multi decode plan failed!" << std::endl;
-      return grpc::Status(grpc::StatusCode::INTERNAL, "Get multi decode plan failed!");
+      return false;
     }
     std::cout << "[Coordinator] get multi decode plan success! " << decode_block_ids.size() << " blocks to decode" << std::endl;
 
@@ -2496,14 +2625,49 @@ namespace ECProject
 
     {
       std::lock_guard<std::mutex> lock(dest_status_mutex);
-      if (!dest_status.ok())
-      {
-        std::cout << "[Coordinator] globalRecovery recovery on dest failed: " << dest_status.error_message() << std::endl;
-        return grpc::Status(grpc::StatusCode::INTERNAL, "globalRecovery dest recovery failed: " + dest_status.error_message());
+      if (!dest_status.ok()) {
+        std::cout << "[Coordinator] globalRecovery recovery on dest failed: "
+                  << dest_status.error_message() << std::endl;
+        return false;
       }
     }
     std::cout << "[Coordinator] globalRecovery success for stripe " << stripe_id
-              << " recovered " << recover_num << " / " << all_failed_num << " failed blocks" << std::endl;
+              << " recovered " << recover_num << " / " << all_failed_num << " failed blocks"
+              << std::endl;
+    return true;
+  }
+
+  grpc::Status CoordinatorImpl::globalRecovery(
+      grpc::ServerContext *context,
+      const coordinator_proto::StripeIdAndBlockIDsFromClient *request,
+      coordinator_proto::RecoveryReply *replyClient)
+  {
+    const int stripe_id = request->stripe_id();
+    const int all_failed_num = request->block_ids_size();
+    std::vector<int> all_failed;
+    all_failed.reserve(static_cast<size_t>(all_failed_num));
+    for (int i = 0; i < all_failed_num; i++)
+      all_failed.push_back(request->block_ids(i));
+
+    std::unordered_set<int> all_failed_set(all_failed.begin(), all_failed.end());
+    std::vector<int> recover;
+    if (request->recovery_block_ids_size() > 0) {
+      recover.reserve(static_cast<size_t>(request->recovery_block_ids_size()));
+      for (int i = 0; i < request->recovery_block_ids_size(); i++) {
+        const int bid = request->recovery_block_ids(i);
+        if (!all_failed_set.count(bid)) {
+          std::cout << "[Coordinator] globalRecovery: recovery_block_id " << bid
+                    << " not in block_ids" << std::endl;
+          return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+                              "recovery_block_ids must be subset of block_ids");
+        }
+        recover.push_back(bid);
+      }
+    }
+
+    if (!execute_global_recovery(stripe_id, all_failed, recover)) {
+      return grpc::Status(grpc::StatusCode::INTERNAL, "globalRecovery failed");
+    }
     return grpc::Status::OK;
   }
 

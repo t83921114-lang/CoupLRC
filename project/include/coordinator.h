@@ -110,6 +110,10 @@ namespace ECProject
       grpc::ServerContext *context,
       const coordinator_proto::NodeIdFromClient *request,
       coordinator_proto::RepBlockNum* response) override;
+    grpc::Status twoNodeRecovery(
+      grpc::ServerContext *context,
+      const coordinator_proto::TwoNodeIdsFromClient *request,
+      coordinator_proto::RepBlockNum* response) override;
     grpc::Status globalRecovery(
       grpc::ServerContext *context,
       const coordinator_proto::StripeIdAndBlockIDsFromClient *request,
@@ -162,6 +166,9 @@ namespace ECProject
     bool recovery_one_block(int stripe_id, int failed_block_id);
     bool recovery_one_block_with_plan(int stripe_id, int failed_block_id,
         const std::vector<std::pair<int, std::vector<int>>> &plan);
+    bool execute_global_recovery(int stripe_id, const std::vector<int> &all_failed,
+                                 const std::vector<int> &recovery_block_ids);
+    bool stripe_recovery_for_failed_blocks(int stripe_id, const std::vector<int> &failed_blocks);
     bool recovery_one_block_breakdown(int stripe_id, int failed_block_id, 
       std::vector<double> &disk_io_start_time, std::vector<double> &disk_io_end_time, std::vector<double> &decode_start_time, std::vector<double> &decode_end_time,
       std::vector<double> &network_start_time, std::vector<double> &network_end_time, double &cross_rack_network_time, double &cross_rack_xor_time,

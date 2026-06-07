@@ -111,6 +111,9 @@ extern StripeIdAndBlockIDsFromClientDefaultTypeInternal _StripeIdAndBlockIDsFrom
 class StripeIdFromClient;
 struct StripeIdFromClientDefaultTypeInternal;
 extern StripeIdFromClientDefaultTypeInternal _StripeIdFromClient_default_instance_;
+class TwoNodeIdsFromClient;
+struct TwoNodeIdsFromClientDefaultTypeInternal;
+extern TwoNodeIdsFromClientDefaultTypeInternal _TwoNodeIdsFromClient_default_instance_;
 }  // namespace coordinator_proto
 PROTOBUF_NAMESPACE_OPEN
 template<> ::coordinator_proto::AskIfSuccess* Arena::CreateMaybeMessage<::coordinator_proto::AskIfSuccess>(Arena*);
@@ -135,6 +138,7 @@ template<> ::coordinator_proto::RequestProxyIPPort* Arena::CreateMaybeMessage<::
 template<> ::coordinator_proto::RequestToCoordinator* Arena::CreateMaybeMessage<::coordinator_proto::RequestToCoordinator>(Arena*);
 template<> ::coordinator_proto::StripeIdAndBlockIDsFromClient* Arena::CreateMaybeMessage<::coordinator_proto::StripeIdAndBlockIDsFromClient>(Arena*);
 template<> ::coordinator_proto::StripeIdFromClient* Arena::CreateMaybeMessage<::coordinator_proto::StripeIdFromClient>(Arena*);
+template<> ::coordinator_proto::TwoNodeIdsFromClient* Arena::CreateMaybeMessage<::coordinator_proto::TwoNodeIdsFromClient>(Arena*);
 PROTOBUF_NAMESPACE_CLOSE
 namespace coordinator_proto {
 
@@ -3141,6 +3145,165 @@ class NodeIdFromClient final :
 };
 // -------------------------------------------------------------------
 
+class TwoNodeIdsFromClient final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:coordinator_proto.TwoNodeIdsFromClient) */ {
+ public:
+  inline TwoNodeIdsFromClient() : TwoNodeIdsFromClient(nullptr) {}
+  ~TwoNodeIdsFromClient() override;
+  explicit PROTOBUF_CONSTEXPR TwoNodeIdsFromClient(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  TwoNodeIdsFromClient(const TwoNodeIdsFromClient& from);
+  TwoNodeIdsFromClient(TwoNodeIdsFromClient&& from) noexcept
+    : TwoNodeIdsFromClient() {
+    *this = ::std::move(from);
+  }
+
+  inline TwoNodeIdsFromClient& operator=(const TwoNodeIdsFromClient& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline TwoNodeIdsFromClient& operator=(TwoNodeIdsFromClient&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const TwoNodeIdsFromClient& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const TwoNodeIdsFromClient* internal_default_instance() {
+    return reinterpret_cast<const TwoNodeIdsFromClient*>(
+               &_TwoNodeIdsFromClient_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    17;
+
+  friend void swap(TwoNodeIdsFromClient& a, TwoNodeIdsFromClient& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(TwoNodeIdsFromClient* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(TwoNodeIdsFromClient* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  TwoNodeIdsFromClient* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<TwoNodeIdsFromClient>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const TwoNodeIdsFromClient& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const TwoNodeIdsFromClient& from) {
+    TwoNodeIdsFromClient::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(TwoNodeIdsFromClient* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "coordinator_proto.TwoNodeIdsFromClient";
+  }
+  protected:
+  explicit TwoNodeIdsFromClient(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kNodeId0FieldNumber = 1,
+    kNodeId1FieldNumber = 2,
+  };
+  // int32 node_id_0 = 1;
+  void clear_node_id_0();
+  int32_t node_id_0() const;
+  void set_node_id_0(int32_t value);
+  private:
+  int32_t _internal_node_id_0() const;
+  void _internal_set_node_id_0(int32_t value);
+  public:
+
+  // int32 node_id_1 = 2;
+  void clear_node_id_1();
+  int32_t node_id_1() const;
+  void set_node_id_1(int32_t value);
+  private:
+  int32_t _internal_node_id_1() const;
+  void _internal_set_node_id_1(int32_t value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:coordinator_proto.TwoNodeIdsFromClient)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    int32_t node_id_0_;
+    int32_t node_id_1_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_coordinator_2eproto;
+};
+// -------------------------------------------------------------------
+
 class RepIfDeling final :
     public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:coordinator_proto.RepIfDeling) */ {
  public:
@@ -3189,7 +3352,7 @@ class RepIfDeling final :
                &_RepIfDeling_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    17;
+    18;
 
   friend void swap(RepIfDeling& a, RepIfDeling& b) {
     a.Swap(&b);
@@ -3337,7 +3500,7 @@ class RepStripeIds final :
                &_RepStripeIds_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    18;
+    19;
 
   friend void swap(RepStripeIds& a, RepStripeIds& b) {
     a.Swap(&b);
@@ -3499,7 +3662,7 @@ class RepBlockNum final :
                &_RepBlockNum_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    19;
+    20;
 
   friend void swap(RepBlockNum& a, RepBlockNum& b) {
     a.Swap(&b);
@@ -3647,7 +3810,7 @@ class DegradedReadReply final :
                &_DegradedReadReply_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    20;
+    21;
 
   friend void swap(DegradedReadReply& a, DegradedReadReply& b) {
     a.Swap(&b);
@@ -3828,7 +3991,7 @@ class RecoveryReply final :
                &_RecoveryReply_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    21;
+    22;
 
   friend void swap(RecoveryReply& a, RecoveryReply& b) {
     a.Swap(&b);
@@ -5562,6 +5725,50 @@ inline void NodeIdFromClient::set_node_id(int32_t value) {
 
 // -------------------------------------------------------------------
 
+// TwoNodeIdsFromClient
+
+// int32 node_id_0 = 1;
+inline void TwoNodeIdsFromClient::clear_node_id_0() {
+  _impl_.node_id_0_ = 0;
+}
+inline int32_t TwoNodeIdsFromClient::_internal_node_id_0() const {
+  return _impl_.node_id_0_;
+}
+inline int32_t TwoNodeIdsFromClient::node_id_0() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.TwoNodeIdsFromClient.node_id_0)
+  return _internal_node_id_0();
+}
+inline void TwoNodeIdsFromClient::_internal_set_node_id_0(int32_t value) {
+  
+  _impl_.node_id_0_ = value;
+}
+inline void TwoNodeIdsFromClient::set_node_id_0(int32_t value) {
+  _internal_set_node_id_0(value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.TwoNodeIdsFromClient.node_id_0)
+}
+
+// int32 node_id_1 = 2;
+inline void TwoNodeIdsFromClient::clear_node_id_1() {
+  _impl_.node_id_1_ = 0;
+}
+inline int32_t TwoNodeIdsFromClient::_internal_node_id_1() const {
+  return _impl_.node_id_1_;
+}
+inline int32_t TwoNodeIdsFromClient::node_id_1() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.TwoNodeIdsFromClient.node_id_1)
+  return _internal_node_id_1();
+}
+inline void TwoNodeIdsFromClient::_internal_set_node_id_1(int32_t value) {
+  
+  _impl_.node_id_1_ = value;
+}
+inline void TwoNodeIdsFromClient::set_node_id_1(int32_t value) {
+  _internal_set_node_id_1(value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.TwoNodeIdsFromClient.node_id_1)
+}
+
+// -------------------------------------------------------------------
+
 // RepIfDeling
 
 // bool ifdeling = 1;
@@ -5850,6 +6057,8 @@ inline void RecoveryReply::set_grpc_start_time(double value) {
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

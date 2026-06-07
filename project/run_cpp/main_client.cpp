@@ -141,7 +141,7 @@ int main(int argc, char **argv)
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
     
-    int stripe_num = 1;
+    int stripe_num = 10;
     size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
     std::cout << "Starting set stripe operation" << std::endl;
     std::chrono::high_resolution_clock::time_point set_start = std::chrono::high_resolution_clock::now();
@@ -284,7 +284,6 @@ int main(int argc, char **argv)
     //     for(int i = 0; i < 10; i++){
     //         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     //         client.multi_block_recovery(0, {0, 1});
-    //         // client.recovery(0, 12);
     //         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     //         std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     //         multi_block_recovery_time_spans.push_back(time_span);
@@ -371,71 +370,147 @@ int main(int argc, char **argv)
     // }
 
     
-    // Full node repair: rand over [0, ClusterNum*DatanodeNumPerCluster) (replaces legacy 19*30)
-    // std::cout << "Full node repair test start" << std::endl;
-    // const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
-    // const int node_num = 5;
-    // std::vector<int> node_ids;
-    // if (total_nodes <= 0)
-    // {
-    //     std::cout << "Invalid ClusterNum/DatanodeNumPerCluster, skip full node repair test" << std::endl;
-    // }
-    // else
-    // {
-    //     while (node_ids.size() < static_cast<size_t>(node_num))
-    //     {
-    //         int random_id = rand() % total_nodes;
-    //         if (std::find(node_ids.begin(), node_ids.end(), random_id) == node_ids.end())
-    //             node_ids.push_back(random_id);
-    //     }
-    //     std::cout << "node_id range [0, " << (total_nodes - 1) << "], sampled nodes:";
-    //     print_block_ids("", node_ids);
+    const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
 
-    //     std::vector<double> full_node_recovery_speeds;
-    //     for (int i = 0; i < node_num; i++)
-    //     {
-    //         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    //         int block_num = client.recovery_full_node(node_ids[i]);
-    //         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    //         std::chrono::duration<double> time_span =
-    //             std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    //         if (block_num <= 0)
-    //         {
-    //             std::cout << "  node " << node_ids[i] << ": skip (no blocks on node or RPC failed)"
-    //                       << std::endl;
-    //             continue;
-    //         }
-    //         if (time_span.count() <= 0)
-    //             continue;
-    //         double total_size = static_cast<double>(block_num) * block_size;
-    //         double speed = total_size / time_span.count();
-    //         full_node_recovery_speeds.push_back(speed);
-    //         std::cout << "  node " << node_ids[i] << ": " << block_num << " blocks, "
-    //                   << speed << " MB/s" << std::endl;
-    //     }
-    //     if (full_node_recovery_speeds.empty())
-    //     {
-    //         std::cout << "No successful full-node recovery samples (all nodes empty?)" << std::endl;
-    //     }
-    //     else
-    //     {
-    //         std::cout << "Average speed: "
-    //                   << std::accumulate(full_node_recovery_speeds.begin(),
-    //                                      full_node_recovery_speeds.end(), 0.0) /
-    //                          full_node_recovery_speeds.size()
-    //                   << " MB/s" << std::endl;
-    //         std::cout << "Max speed: "
-    //                   << *std::max_element(full_node_recovery_speeds.begin(),
-    //                                        full_node_recovery_speeds.end())
-    //                   << " MB/s" << std::endl;
-    //         std::cout << "Min speed: "
-    //                   << *std::min_element(full_node_recovery_speeds.begin(),
-    //                                        full_node_recovery_speeds.end())
-    //                   << " MB/s" << std::endl;
-    //     }
-    //     std::cout << "Full node repair test end" << std::endl;
-    //     std::cout << std::endl;
-    // }
+    //Full node repair: rand over [0, ClusterNum*DatanodeNumPerCluster) (replaces legacy 19*30)
+    std::cout << "Full node repair test start" << std::endl;
+    const int node_num = 5;
+    std::vector<int> node_ids;
+    if (total_nodes <= 0)
+    {
+        std::cout << "Invalid ClusterNum/DatanodeNumPerCluster, skip full node repair test" << std::endl;
+    }
+    else
+    {
+        while (node_ids.size() < static_cast<size_t>(node_num))
+        {
+            int random_id = rand() % total_nodes;
+            if (std::find(node_ids.begin(), node_ids.end(), random_id) == node_ids.end())
+                node_ids.push_back(random_id);
+        }
+        std::cout << "node_id range [0, " << (total_nodes - 1) << "], sampled nodes:";
+        print_block_ids("", node_ids);
+
+        std::vector<double> full_node_recovery_speeds;
+        for (int i = 0; i < node_num; i++)
+        {
+            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+            int block_num = client.recovery_full_node(node_ids[i]);
+            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> time_span =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            if (block_num <= 0)
+            {
+                std::cout << "  node " << node_ids[i] << ": skip (no blocks on node or RPC failed)"
+                          << std::endl;
+                continue;
+            }
+            if (time_span.count() <= 0)
+                continue;
+            double total_size = static_cast<double>(block_num) * block_size;
+            double speed = total_size / time_span.count();
+            full_node_recovery_speeds.push_back(speed);
+            std::cout << "  node " << node_ids[i] << ": " << block_num << " blocks, "
+                      << speed << " MB/s" << std::endl;
+        }
+        if (full_node_recovery_speeds.empty())
+        {
+            std::cout << "No successful full-node recovery samples (all nodes empty?)" << std::endl;
+        }
+        else
+        {
+            std::cout << "Average speed: "
+                      << std::accumulate(full_node_recovery_speeds.begin(),
+                                         full_node_recovery_speeds.end(), 0.0) /
+                             full_node_recovery_speeds.size()
+                      << " MB/s" << std::endl;
+            std::cout << "Max speed: "
+                      << *std::max_element(full_node_recovery_speeds.begin(),
+                                           full_node_recovery_speeds.end())
+                      << " MB/s" << std::endl;
+            std::cout << "Min speed: "
+                      << *std::min_element(full_node_recovery_speeds.begin(),
+                                           full_node_recovery_speeds.end())
+                      << " MB/s" << std::endl;
+        }
+        std::cout << "Full node repair test end" << std::endl;
+        std::cout << std::endl;
+    }
+
+    // Two-node repair: per stripe, 0 blocks skip / 1 block single / 2 blocks dual recovery
+    std::cout << "Two node repair test start" << std::endl;
+    const int pair_num = 5;
+    if (total_nodes <= 1)
+    {
+        std::cout << "Need at least 2 nodes, skip two-node repair test" << std::endl;
+    }
+    else
+    {
+        std::vector<std::pair<int, int>> node_pairs;
+        while (node_pairs.size() < static_cast<size_t>(pair_num))
+        {
+            int n0 = rand() % total_nodes;
+            int n1 = rand() % total_nodes;
+            while (n1 == n0)
+                n1 = rand() % total_nodes;
+            if (n0 > n1)
+                std::swap(n0, n1);
+            const std::pair<int, int> p{n0, n1};
+            if (std::find(node_pairs.begin(), node_pairs.end(), p) == node_pairs.end())
+                node_pairs.push_back(p);
+        }
+        std::cout << "node_id range [0, " << (total_nodes - 1) << "], sampled pairs:";
+        for (size_t i = 0; i < node_pairs.size(); i++)
+            std::cout << " (" << node_pairs[i].first << "," << node_pairs[i].second << ")";
+        std::cout << std::endl;
+
+        std::vector<double> two_node_recovery_speeds;
+        for (int i = 0; i < pair_num; i++)
+        {
+            const int n0 = node_pairs[i].first;
+            const int n1 = node_pairs[i].second;
+            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+            int block_num = client.recovery_two_nodes(n0, n1);
+            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> time_span =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            if (block_num <= 0)
+            {
+                std::cout << "  nodes " << n0 << "," << n1
+                          << ": skip (no blocks on both nodes or RPC failed)" << std::endl;
+                continue;
+            }
+            if (time_span.count() <= 0)
+                continue;
+            double total_size = static_cast<double>(block_num) * block_size;
+            double speed = total_size / time_span.count();
+            two_node_recovery_speeds.push_back(speed);
+            std::cout << "  nodes " << n0 << "," << n1 << ": " << block_num << " blocks, "
+                      << speed << " MB/s" << std::endl;
+        }
+        if (two_node_recovery_speeds.empty())
+        {
+            std::cout << "No successful two-node recovery samples (all pairs empty?)" << std::endl;
+        }
+        else
+        {
+            std::cout << "Average speed: "
+                      << std::accumulate(two_node_recovery_speeds.begin(),
+                                         two_node_recovery_speeds.end(), 0.0) /
+                             two_node_recovery_speeds.size()
+                      << " MB/s" << std::endl;
+            std::cout << "Max speed: "
+                      << *std::max_element(two_node_recovery_speeds.begin(),
+                                           two_node_recovery_speeds.end())
+                      << " MB/s" << std::endl;
+            std::cout << "Min speed: "
+                      << *std::min_element(two_node_recovery_speeds.begin(),
+                                           two_node_recovery_speeds.end())
+                      << " MB/s" << std::endl;
+        }
+        std::cout << "Two node repair test end" << std::endl;
+        std::cout << std::endl;
+    }
 
     //for decode test
     // std::cout << "Decode test start" << std::endl;
