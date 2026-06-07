@@ -330,13 +330,16 @@ namespace ECProject
     int max_capacity = r + 1;
     for (size_t i = 0; i < local_group_sizes.size(); i++)
     {
-      int remain_size = local_group_sizes[i];
-      while (remain_size > 0)
-      {
-        int put_num = std::min(remain_size, max_capacity);
-        group_sizes.push_back(put_num);
-        remain_size -= put_num;
-      }
+      int S = local_group_sizes[i];
+      // Split one local group across ceil(S/max_capacity) clusters as evenly as possible,
+      // e.g. S=13, max_capacity=4 -> 4 clusters of sizes 4,3,3,3 (not greedy 4,4,4,1).
+      int cluster_num = S / max_capacity + bool(S % max_capacity);
+      int base = S / cluster_num;
+      int larger = S % cluster_num; // the first `larger` clusters hold one extra block
+      for (int j = 0; j < larger; j++)
+        group_sizes.push_back(base + 1);
+      for (int j = 0; j < cluster_num - larger; j++)
+        group_sizes.push_back(base);
     }
     return group_sizes;
   }

@@ -411,24 +411,31 @@ void ECProject::gen_uniform_lrc_matrix(unsigned char *encode_matrix, int k, int 
     gf_gen_cauchy_matrix1(encode_matrix, m, k);
     unsigned char *local_vector = new unsigned char[k];
     gf_gen_local_vector(local_vector, k, r);
-    // Partition k data blocks into z groups with sizes differing by at most 1.
-    // NOTE: local parity rows only depend on data indices [0, k).
-    int group_size = k / z;
-    int larger_group_num = k % z;
-    for(int i = 0; i < k; i++){
-        int row;
-        if(i < (z - larger_group_num) * group_size){
-            row = i / group_size;
+    // The k data blocks and the r global-parity blocks (k+r "data-like" blocks) are split into z
+    // contiguous local groups; each local group's local parity protects ALL of its members.
+    // This partition MUST match get_uniform_lrc_block_id_to_local_group_id() in encoder_layout.cpp
+    // (run sizes (k+r)/z, with the last (k+r)%z groups holding one extra), so that globals fall
+    // into the last local group(s). A data member d contributes local_vector[d]*data[d]; a global
+    // member gp contributes 1*global[gp] (its Cauchy row XORed into the group's local parity row).
+    auto datalike_group = [&](int b) -> int {
+        int base = (k + r) / z;
+        int larger = (k + r) % z;          // last `larger` groups hold one extra data-like block
+        int cur = 0;
+        for (int g = 0; g < z; g++) {
+            int run = base + (g >= z - larger ? 1 : 0);
+            if (b < cur + run) return g;
+            cur += run;
         }
-        else{
-            row = (z - larger_group_num) + (i - (z - larger_group_num) * group_size) / (group_size + 1);
-        }
-        assert(row >= 0 && row < z && "UniformLRC local parity row out of range");
-        encode_matrix[(m + row) * k + i] = local_vector[i];
+        return z - 1;
+    };
+    for(int d = 0; d < k; d++){
+        int row = datalike_group(d);
+        encode_matrix[(m + row) * k + d] = local_vector[d];
     }
-    for(int i = 0; i < r; i++){
+    for(int gp = k; gp < k + r; gp++){
+        int row = datalike_group(gp);
         for(int j = 0; j < k; j++){
-            encode_matrix[(m + z - 1) * k + j] ^= encode_matrix[(k + i) * k + j];
+            encode_matrix[(m + row) * k + j] ^= encode_matrix[gp * k + j];
         }
     }
     delete[] local_vector;

@@ -162,13 +162,37 @@ void audit(const std::string &code, int k, int r, int z)
 
 } // namespace
 
+void dump_uniform_layout(int k, int r, int z)
+{
+    auto g2b = ECProject::get_uniform_lrc_group_id_to_block_ids(k, r, z);
+    int ng = (int)g2b.size();
+    std::cout << "UniformLRC layout k=" << k << " r=" << r << " z=" << z << ":\n";
+    for (int lg = 0; lg < z; ++lg) {
+        std::cout << "  local group " << lg << " clusters: ";
+        for (int g = 0; g < ng; ++g) {
+            // a placement group belongs to local group lg if its first block maps there
+            if (g2b[g].empty()) continue;
+            int any = g2b[g][0];
+            if (ECProject::get_uniform_lrc_block_id_to_local_group_id(k, r, z, any) != lg) continue;
+            std::cout << g2b[g].size() << "[";
+            for (size_t t = 0; t < g2b[g].size(); ++t)
+                std::cout << (t ? "," : "") << g2b[g][t];
+            std::cout << "] ";
+        }
+        std::cout << "\n";
+    }
+}
+
 int main()
 {
     audit("LotusLRC", 48, 2, 8);
     audit("AzureLRC", 30, 6, 6);
     audit("OptimalLRC", 30, 10, 2);
     audit("UniformLRC", 30, 6, 6);
+    audit("UniformLRC", 48, 3, 4);
     audit("UniLRC", 12, 6, 3);
     audit("UniLRC", 24, 8, 4);
+    std::cout << "----- layout dump -----\n";
+    dump_uniform_layout(48, 3, 4);
     return 0;
 }
