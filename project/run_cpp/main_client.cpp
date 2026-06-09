@@ -75,6 +75,38 @@ void print_block_ids(const char *label, const std::vector<int> &ids)
     std::cout << std::endl;
 }
 
+// Throughput = recovered_data_mb / elapsed_seconds
+void print_throughput_summary(const char *test_name,
+                              const std::vector<std::chrono::duration<double>> &time_spans,
+                              double recovered_mb)
+{
+    if (time_spans.empty())
+    {
+        std::cout << test_name << ": no successful samples" << std::endl;
+        return;
+    }
+    std::vector<double> throughputs;
+    throughputs.reserve(time_spans.size());
+    for (const auto &t : time_spans)
+    {
+        if (t.count() <= 0)
+            continue;
+        throughputs.push_back(recovered_mb / t.count());
+    }
+    if (throughputs.empty())
+    {
+        std::cout << test_name << ": no valid timing samples" << std::endl;
+        return;
+    }
+    const double avg = std::accumulate(throughputs.begin(), throughputs.end(), 0.0) /
+                       static_cast<double>(throughputs.size());
+    const double max_tp = *std::max_element(throughputs.begin(), throughputs.end());
+    const double min_tp = *std::min_element(throughputs.begin(), throughputs.end());
+    std::cout << "Average throughput: " << avg << " MB/s" << std::endl;
+    std::cout << "Max throughput: " << max_tp << " MB/s" << std::endl;
+    std::cout << "Min throughput: " << min_tp << " MB/s" << std::endl;
+}
+
 // Single-rack repair split: how many of the N failed blocks (all in one local group)
 // go through the global (cross-group) batch, leaving the rest for cheap local-group
 // recovery. The number left for local recovery equals the number of local-parity
@@ -264,131 +296,127 @@ int main(int argc, char **argv)
 
 
     // for one block recovery
-    /*
     {
+        const double recovered_mb = block_size;
         std::vector<std::chrono::duration<double>> one_block_recovery_time_spans;
         std::cout << "One block recovery test start" << std::endl;
-        for(int i = 0; i < 10; i++){
+        for (int i = 0; i < 10; i++)
+        {
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
             client.recovery(0, 0);
             std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            std::chrono::duration<double> time_span =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
             one_block_recovery_time_spans.push_back(time_span);
-            std::cout << "[" << i << "th] One block recovery time: " << time_span.count() << "s" << std::endl;
-            //sleep(2);
+            if (time_span.count() > 0)
+                std::cout << "[" << i << "th] One block recovery throughput: "
+                          << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
         }
-        std::chrono::duration<double> one_block_recovery_total_time_span = std::accumulate(one_block_recovery_time_spans.begin(), one_block_recovery_time_spans.end(), std::chrono::duration<double>(0));
-        std::chrono::duration<double> one_block_recovery_max_time_span = *std::max_element(one_block_recovery_time_spans.begin(), one_block_recovery_time_spans.end());
-        std::chrono::duration<double> one_block_recovery_min_time_span = *std::min_element(one_block_recovery_time_spans.begin(), one_block_recovery_time_spans.end());
-        std::cout << "Average time: " << one_block_recovery_total_time_span.count() / one_block_recovery_time_spans.size() << std::endl;
-        std::cout << "Max time: "<< one_block_recovery_max_time_span.count() << std::endl;
-        std::cout << "Min time: "<< one_block_recovery_min_time_span.count() << std::endl;
+        print_throughput_summary("One block recovery", one_block_recovery_time_spans, recovered_mb);
         std::cout << "One block recovery test end" << std::endl;
         std::cout << std::endl;
     }
-    */
-    // for multi block recovery (test blocks 0 and 1)
-    
+
+    // for two block recovery (test blocks 0 and 1)
     // {
+    //     const double recovered_mb = 2.0 * block_size;
     //     std::vector<std::chrono::duration<double>> multi_block_recovery_time_spans;
-    //     std::cout << "Multi block recovery test start (blocks 0, 1)" << std::endl;
-    //     for(int i = 0; i < 10; i++){
+    //     std::cout << "Two block recovery test start (blocks 0, 1)" << std::endl;
+    //     for (int i = 0; i < 10; i++)
+    //     {
     //         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-            // client.multi_block_recovery(0, {0, 1});
+    //         client.multi_block_recovery(0, {0, 1});
     //         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    //         std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    //         std::chrono::duration<double> time_span =
+    //             std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     //         multi_block_recovery_time_spans.push_back(time_span);
-    //         std::cout << "[" << i << "th] Multi block recovery time: " << time_span.count() << "s" << std::endl;
-    //         //sleep(2);
+    //         if (time_span.count() > 0)
+    //             std::cout << "[" << i << "th] Two block recovery throughput: "
+    //                       << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
     //     }
-    //     std::chrono::duration<double> multi_block_recovery_total_time_span = std::accumulate(multi_block_recovery_time_spans.begin(), multi_block_recovery_time_spans.end(), std::chrono::duration<double>(0));
-    //     std::chrono::duration<double> multi_block_recovery_max_time_span = *std::max_element(multi_block_recovery_time_spans.begin(), multi_block_recovery_time_spans.end());
-    //     std::chrono::duration<double> multi_block_recovery_min_time_span = *std::min_element(multi_block_recovery_time_spans.begin(), multi_block_recovery_time_spans.end());
-    //     std::cout << "Average time: " << multi_block_recovery_total_time_span.count() / multi_block_recovery_time_spans.size() << std::endl;
-    //     std::cout << "Max time: "<< multi_block_recovery_max_time_span.count() << std::endl;
-    //     std::cout << "Min time: "<< multi_block_recovery_min_time_span.count() << std::endl;
-    //     std::cout << "Multi block recovery test end" << std::endl;
+    //     print_throughput_summary("Two block recovery", multi_block_recovery_time_spans, recovered_mb);
+    //     std::cout << "Two block recovery test end" << std::endl;
     //     std::cout << std::endl;
     // }
     
     // Multi block recovery: first cluster (rack) fails under current layout + placement
-    {
-        const int test_stripe_id = 0;
-        const int failed_cluster_id = 0;
-        std::vector<int> first_rack_failed;
-        try
-        {
-            first_rack_failed = blocks_on_cluster(
-                code_type, k, r, z, n, test_stripe_id, failed_cluster_id, config->ClusterNum);
-        }
-        catch (const std::exception &e)
-        {
-            std::cout << "Layout lookup failed: " << e.what() << std::endl;
-            return -1;
-        }
-        if (first_rack_failed.empty())
-        {
-            std::cout << "No blocks on cluster " << failed_cluster_id
-                      << " for stripe " << test_stripe_id << ", skip one-rack test" << std::endl;
-        }
-        else
-        {
-        std::vector<int> multi_recover_ids = multi_recovery_batch(code_type, r, first_rack_failed);
-        // Leftover blocks (not in the global batch) are recovered by local-group repair.
-        std::vector<int> local_recover_ids;
-        for (int bid : first_rack_failed)
-        {
-            if (std::find(multi_recover_ids.begin(), multi_recover_ids.end(), bid) ==
-                multi_recover_ids.end())
-                local_recover_ids.push_back(bid);
-        }
-        // Lotus offloads 2 same-local-group blocks to a single-round 2-parity local
-        // recovery; the others offload 1 block per single-block local recovery.
-        const bool lotus_two_block_local =
-            (code_type == "LotusLRC" && local_recover_ids.size() == 2);
+    // {
+    //     const int test_stripe_id = 0;
+    //     const int failed_cluster_id = 0;
+    //     std::vector<int> first_rack_failed;
+    //     try
+    //     {
+    //         first_rack_failed = blocks_on_cluster(
+    //             code_type, k, r, z, n, test_stripe_id, failed_cluster_id, config->ClusterNum);
+    //     }
+    //     catch (const std::exception &e)
+    //     {
+    //         std::cout << "Layout lookup failed: " << e.what() << std::endl;
+    //         return -1;
+    //     }
+    //     if (first_rack_failed.empty())
+    //     {
+    //         std::cout << "No blocks on cluster " << failed_cluster_id
+    //                   << " for stripe " << test_stripe_id << ", skip one-rack test" << std::endl;
+    //     }
+    //     else
+    //     {
+    //     std::vector<int> multi_recover_ids = multi_recovery_batch(code_type, r, first_rack_failed);
+    //     // Leftover blocks (not in the global batch) are recovered by local-group repair.
+    //     std::vector<int> local_recover_ids;
+    //     for (int bid : first_rack_failed)
+    //     {
+    //         if (std::find(multi_recover_ids.begin(), multi_recover_ids.end(), bid) ==
+    //             multi_recover_ids.end())
+    //             local_recover_ids.push_back(bid);
+    //     }
+    //     // Lotus offloads 2 same-local-group blocks to a single-round 2-parity local
+    //     // recovery; the others offload 1 block per single-block local recovery.
+    //     const bool lotus_two_block_local =
+    //         (code_type == "LotusLRC" && local_recover_ids.size() == 2);
 
-        std::cout << "Multi block recovery test start (one rack, cluster "
-                  << failed_cluster_id << ", stripe " << test_stripe_id << ")" << std::endl;
-        print_block_ids("  Failed blocks on rack (layout+placement):", first_rack_failed);
-        print_block_ids("  Blocks via globalRecovery batch:", multi_recover_ids);
-        if (lotus_two_block_local)
-            print_block_ids("  Blocks via Lotus same-group 2-parity local recovery:", local_recover_ids);
-        else
-            print_block_ids("  Blocks via recovery() one-by-one (single-block local):", local_recover_ids);
+    //     std::cout << "Multi block recovery test start (one rack, cluster "
+    //               << failed_cluster_id << ", stripe " << test_stripe_id << ")" << std::endl;
+    //     print_block_ids("  Failed blocks on rack (layout+placement):", first_rack_failed);
+    //     print_block_ids("  Blocks via globalRecovery batch:", multi_recover_ids);
+    //     if (lotus_two_block_local)
+    //         print_block_ids("  Blocks via Lotus same-group 2-parity local recovery:", local_recover_ids);
+    //     else
+    //         print_block_ids("  Blocks via recovery() one-by-one (single-block local):", local_recover_ids);
 
-        std::vector<std::chrono::duration<double>> multi_block_recovery_one_rack_time_spans;
-        for (int i = 0; i < 10; i++)
-        {
-            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-            // Step 1: global batch recovers the bulk (N-2 for Lotus, N-1 for others).
-            if (!multi_recover_ids.empty())
-                client.multi_block_recovery(test_stripe_id, first_rack_failed, multi_recover_ids);
-            // Step 2: local-group recovery of the leftover block(s).
-            if (lotus_two_block_local)
-                client.multi_block_recovery(test_stripe_id, local_recover_ids, {});
-            else
-                for (int bid : local_recover_ids)
-                    client.recovery(test_stripe_id, bid);
-            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> time_span =
-                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-            multi_block_recovery_one_rack_time_spans.push_back(time_span);
-            std::cout << "[" << i << "th] Multi block recovery one rack time: " << time_span.count()
-                      << "s" << std::endl;
-        }
-        std::chrono::duration<double> multi_block_recovery_one_rack_total_time_span = std::accumulate(multi_block_recovery_one_rack_time_spans.begin(), multi_block_recovery_one_rack_time_spans.end(), std::chrono::duration<double>(0));
-        std::chrono::duration<double> multi_block_recovery_one_rack_max_time_span = *std::max_element(multi_block_recovery_one_rack_time_spans.begin(), multi_block_recovery_one_rack_time_spans.end());
-        std::chrono::duration<double> multi_block_recovery_one_rack_min_time_span = *std::min_element(multi_block_recovery_one_rack_time_spans.begin(), multi_block_recovery_one_rack_time_spans.end());
-        std::cout << "Average time: " << multi_block_recovery_one_rack_total_time_span.count() / multi_block_recovery_one_rack_time_spans.size() << std::endl;
-        std::cout << "Max time: "<< multi_block_recovery_one_rack_max_time_span.count() << std::endl;
-        std::cout << "Min time: "<< multi_block_recovery_one_rack_min_time_span.count() << std::endl;
-        std::cout << "Multi block recovery test end" << std::endl;
-        std::cout << std::endl;
-        }
-    }
+    //     const double recovered_mb =
+    //         static_cast<double>(first_rack_failed.size()) * block_size;
+
+    //     std::vector<std::chrono::duration<double>> multi_block_recovery_one_rack_time_spans;
+    //     for (int i = 0; i < 10; i++)
+    //     {
+    //         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    //         // Step 1: global batch recovers the bulk (N-2 for Lotus, N-1 for others).
+    //         if (!multi_recover_ids.empty())
+    //             client.multi_block_recovery(test_stripe_id, first_rack_failed, multi_recover_ids);
+    //         // Step 2: local-group recovery of the leftover block(s).
+    //         if (lotus_two_block_local)
+    //             client.multi_block_recovery(test_stripe_id, local_recover_ids, {});
+    //         else
+    //             for (int bid : local_recover_ids)
+    //                 client.recovery(test_stripe_id, bid);
+    //         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    //         std::chrono::duration<double> time_span =
+    //             std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    //         multi_block_recovery_one_rack_time_spans.push_back(time_span);
+    //         if (time_span.count() > 0)
+    //             std::cout << "[" << i << "th] One rack recovery throughput: "
+    //                       << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
+    //     }
+    //     print_throughput_summary("One rack recovery", multi_block_recovery_one_rack_time_spans,
+    //                              recovered_mb);
+    //     std::cout << "One rack recovery test end" << std::endl;
+    //     std::cout << std::endl;
+    //     }
+    // }
 
     
-    const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
+    // const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
 
     //Full node repair: rand over [0, ClusterNum*DatanodeNumPerCluster) (replaces legacy 19*30)
     // std::cout << "Full node repair test start" << std::endl;
