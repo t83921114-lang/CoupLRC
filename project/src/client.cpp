@@ -1220,16 +1220,69 @@ namespace ECProject
   bool Client::multi_block_recovery(int stripe_id, std::vector<int> all_failed_block_ids,
                                     const std::vector<int> &recovery_block_ids)
   {
-    if (all_failed_block_ids.size() != 2) {
-      return call_global_recovery(stripe_id, all_failed_block_ids, recovery_block_ids);
-    }
-
-    const int f0 = all_failed_block_ids[0];
-    const int f1 = all_failed_block_ids[1];
     const std::string &code_type = m_sys_config->CodeType;
     const int k = m_sys_config->k;
     const int r = m_sys_config->r;
     const int z = m_sys_config->z;
+    const size_t num_failed = all_failed_block_ids.size();
+
+    if (num_failed == 0)
+      return true;
+    if (num_failed == 1)
+      return recovery(stripe_id, all_failed_block_ids[0]);
+
+    if (num_failed > 2) {
+      // >2 failed blocks: only the "all failed blocks in the same local group" case is
+      // handled specially here. Blocks spanning multiple local groups fall back to plain
+      // global recovery for now.
+      bool same_local_group = true;
+      int lg0 = -1;
+      try {
+        lg0 = ECProject::get_block_id_to_local_group_id(code_type, k, r, z, all_failed_block_ids[0]);
+        for (size_t i = 1; i < num_failed; i++) {
+          if (ECProject::get_block_id_to_local_group_id(code_type, k, r, z, all_failed_block_ids[i]) != lg0) {
+            same_local_group = false;
+            break;
+          }
+        }
+      } catch (const std::exception &) {
+        same_local_group = false;
+      }
+
+      if (!same_local_group) {
+        std::cout << "[Client] multi-block recovery (" << num_failed
+                  << " blocks): span multiple local groups, GLOBAL recovery" << std::endl;
+        return call_global_recovery(stripe_id, all_failed_block_ids, recovery_block_ids);
+      }
+
+      // All failed blocks in the same local group: globally recover the leading blocks
+      // first, then locally recover the trailing block(s). LotusLRC keeps the last 2 for a
+      // one-round local repair (handled by the two-block path); the other codes keep the
+      // last 1 for a single-block local repair. After the global step the leading blocks are
+      // restored, so the local group has enough surviving blocks for the trailing repair.
+      std::vector<int> failed = all_failed_block_ids;
+      std::sort(failed.begin(), failed.end());
+      const size_t local_tail = (code_type == "LotusLRC") ? 2u : 1u;
+      std::vector<int> global_part(failed.begin(), failed.end() - local_tail);
+      std::vector<int> tail_blocks(failed.end() - local_tail, failed.end());
+
+      std::cout << "[Client] multi-block recovery (" << num_failed
+                << " blocks, same local group " << lg0 << "): GLOBAL recover "
+                << global_part.size() << " block(s), then LOCAL recover "
+                << tail_blocks.size() << " block(s)" << std::endl;
+
+      if (!global_part.empty() && !call_global_recovery(stripe_id, failed, global_part)) {
+        std::cout << "[Client] multi-block recovery: global step failed" << std::endl;
+        return false;
+      }
+
+      if (local_tail == 2)
+        return multi_block_recovery(stripe_id, tail_blocks, {});
+      return recovery(stripe_id, tail_blocks[0]);
+    }
+
+    const int f0 = all_failed_block_ids[0];
+    const int f1 = all_failed_block_ids[1];
 
     ECProject::TwoBlockRecoveryMode mode =
         ECProject::select_two_block_recovery_mode(code_type, k, r, z, f0, f1);

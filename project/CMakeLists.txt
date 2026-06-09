@@ -229,3 +229,20 @@ target_link_libraries(encode_benchmark
     -lJerasure
     -lgf_complete
 )
+
+# Layered ISA-L encoding microbenchmark (levels 0-3)
+add_executable(isal_encode_microbench
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/isal_encode_microbench.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tinyxml2.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder.cpp
+    ${ASM_SOURCES}
+)
+target_include_directories(isal_encode_microbench PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(isal_encode_microbench
+    -lpthread
+    -lJerasure
+    -lgf_complete
+)

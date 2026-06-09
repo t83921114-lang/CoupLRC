@@ -133,7 +133,7 @@ int main(int argc, char **argv)
   double median = times[static_cast<size_t>(measure_iters / 2)];
   double min_t = times.front();
   double max_t = times.back();
-  double data_mb = static_cast<double>(k) * block_size / 1024.0 / 1024.0;
+  double stripe_mb = static_cast<double>(block_num) * block_size / 1024.0 / 1024.0;
 
   std::cout << "\n=== Encoding benchmark result ===" << std::endl;
   std::cout << "CodeType: " << cfg->CodeType << std::endl;
@@ -142,8 +142,8 @@ int main(int argc, char **argv)
   std::cout << "encode_time_median_s: " << median << std::endl;
   std::cout << "encode_time_min_s: " << min_t << std::endl;
   std::cout << "encode_time_max_s: " << max_t << std::endl;
-  std::cout << "encode_throughput_avg_MBps: " << (data_mb / avg) << std::endl;
-  std::cout << "encode_throughput_median_MBps: " << (data_mb / median) << std::endl;
+  std::cout << "encode_stripe_throughput_avg_MBps: " << (stripe_mb / avg) << std::endl;
+  std::cout << "encode_stripe_throughput_median_MBps: " << (stripe_mb / median) << std::endl;
 
   for (unsigned char *p : blocks)
   {
