@@ -180,6 +180,20 @@ namespace ECProject
                                         std::vector<int> &chosen_sources,
                                         std::vector<unsigned char> &full_coeffs);
 
+    // Maintenance-robust read leftover local fill: strict GF solve.
+    // Given the leftover data block(s) to reconstruct and a fixed-order list of available
+    // source blocks (members of the leftover's local group: local parity block(s), surviving
+    // data siblings, group-internal global parity blocks, and already-reconstructed members),
+    // compute coeffs (row-major, size leftover.size() * source_block_ids.size()) such that
+    //   block(leftover[rr]) = sum_i coeffs[rr*S + i] * block(source_block_ids[i])   over GF(2^8).
+    // Coefficients are exact (handle weighted local parities, folded globals, and the
+    // inverse of the leftover's own coefficient). Returns false if any leftover block is not
+    // in the span of the provided sources (caller should fall back to a global decode).
+    bool get_local_fill_plan(int k, int r, int z, const std::string &code_type,
+                             const std::vector<int> &leftover_block_ids,
+                             const std::vector<int> &source_block_ids,
+                             std::vector<unsigned char> &coeffs);
+
     /* Data layout / placement: per-group block counts for data, global parity, local parity (by code_type) */
     std::vector<int> get_data_block_num_per_group(int k, int r, int z, const std::string &code_type);
     std::vector<int> get_global_parity_block_num_per_group(int k, int r, int z, const std::string &code_type);

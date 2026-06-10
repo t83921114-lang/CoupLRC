@@ -180,6 +180,17 @@ message DegradedReadRequest{
   // [uint32 tag (0=global batch, 1=local fill)][uint32 nblocks] so the dest can route/route-size
   // connections that may interleave on its single acceptor.
   bool maintenance_header = 14;
+  // ---- Maintenance-robust two-phase read: strict GF local fill (helper side) ----
+  // leftover_block_ids: the leftover DATA block(s) the dest reconstructs by strict GF solve
+  //   (1 for AzureLRC/OptimalLRC/UniformLRC, up to 2 for LotusLRC).
+  // local_fill_source_ids: the FULL, fixed-order list of source blocks used by the local-fill
+  //   solve (all available members of the leftover's local group). Both dest and every helper
+  //   recompute the SAME coefficient matrix from (leftover_block_ids, local_fill_source_ids) via
+  //   ECProject::get_local_fill_plan, then each applies the columns for the source blocks it
+  //   actually holds. A helper emits a tag=1 partial of leftover_block_ids.size() blocks:
+  //   row rr = sum over its held sources s of coeff[rr][s] * block_s  (GF(2^8), not plain XOR).
+  repeated int32 leftover_block_ids = 15;
+  repeated int32 local_fill_source_ids = 16;
 }
 
 message PartialDecodingRequest{
@@ -257,10 +268,19 @@ message RecoveryRequest{
   repeated int32 local_parity_datanodeport = 24;
   repeated string local_parity_blockkeys = 25;
   // The global-batch blocks (a subset of failed_block_ids) that belong to the leftover's local group;
-  // their reconstructed values are XORed into the local-fill combine.
+  // their already-reconstructed values (in res_buf) contribute to the local-fill solve, weighted by
+  // their GF coefficients.
   repeated int32 reconstructed_lg_member_ids = 26;
   // number of tag=1 local-fill partial senders the dest should accept.
   int32 local_fill_sender_num = 28;
+  // The FULL, fixed-order source block list for the strict GF local-fill solve (all available
+  // members of the leftover's local group). The dest recomputes the coefficient matrix from
+  // (leftover_block_ids, local_fill_source_ids) via ECProject::get_local_fill_plan and applies the
+  // columns for the sources it holds: local_parity_block_ids (directly read), and
+  // reconstructed_lg_member_ids (from res_buf). Helper-held sources arrive as tag=1 partials.
+  // NOTE: local_parity_block_ids/ip/port/keys carry ALL dest-directly-read sources (the surviving
+  // local parity block(s) plus any group member not read by a helper), not only local parities.
+  repeated int32 local_fill_source_ids = 29;
 }
 
 message MultipleRecoveryRequest{

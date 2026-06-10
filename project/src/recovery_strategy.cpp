@@ -179,6 +179,76 @@ bool get_lotus_two_block_local_plan(int k, int r, int z,
     return true;
 }
 
+namespace {
+
+// Build the full (k+r+z) x k generator matrix for the given code type.
+bool build_generator_matrix(const std::string &code_type, int k, int r, int z,
+                            std::vector<unsigned char> &gen)
+{
+    gen.assign(static_cast<size_t>(k + r + z) * k, 0);
+    if (code_type == "UniLRC")
+        gen_unilrc_matrix(gen.data(), k, r, z);
+    else if (code_type == "AzureLRC")
+        gen_azure_lrc_matrix(gen.data(), k, r, z);
+    else if (code_type == "OptimalLRC")
+        gen_optimal_lrc_matrix(gen.data(), k, r, z);
+    else if (code_type == "UniformLRC")
+        gen_uniform_lrc_matrix(gen.data(), k, r, z);
+    else if (code_type == "LotusLRC")
+        gen_lotuslrc_matrix(gen.data(), k, r, z);
+    else
+        return false;
+    return true;
+}
+
+} // namespace
+
+bool get_local_fill_plan(int k, int r, int z, const std::string &code_type,
+                         const std::vector<int> &leftover_block_ids,
+                         const std::vector<int> &source_block_ids,
+                         std::vector<unsigned char> &coeffs)
+{
+    coeffs.clear();
+    const int R = static_cast<int>(leftover_block_ids.size());
+    const int S = static_cast<int>(source_block_ids.size());
+    if (R == 0 || S == 0)
+        return false;
+
+    const int nrows = k + r + z;
+    std::vector<unsigned char> gen;
+    if (!build_generator_matrix(code_type, k, r, z, gen))
+    {
+        std::cerr << "Error: get_local_fill_plan unsupported code type " << code_type << std::endl;
+        return false;
+    }
+    for (int bid : source_block_ids)
+        if (bid < 0 || bid >= nrows)
+            return false;
+    for (int bid : leftover_block_ids)
+        if (bid < 0 || bid >= nrows)
+            return false;
+
+    coeffs.assign(static_cast<size_t>(R) * S, 0);
+    for (int rr = 0; rr < R; ++rr)
+    {
+        const int f = leftover_block_ids[rr];
+        // Solve sum_i coeff_i * gen[source_i] = gen[f]  (k equations, S unknowns) over GF(2^8).
+        std::vector<unsigned char> A(static_cast<size_t>(k) * S, 0), y(k, 0);
+        for (int eq = 0; eq < k; ++eq)
+        {
+            for (int i = 0; i < S; ++i)
+                A[static_cast<size_t>(eq) * S + i] = gen[static_cast<size_t>(source_block_ids[i]) * k + eq];
+            y[eq] = gen[static_cast<size_t>(f) * k + eq];
+        }
+        std::vector<unsigned char> coeff;
+        if (!gf_solve_rect(std::move(A), std::move(y), k, S, coeff))
+            return false; // leftover not in the span of the provided sources
+        for (int i = 0; i < S; ++i)
+            coeffs[static_cast<size_t>(rr) * S + i] = coeff[i];
+    }
+    return true;
+}
+
 bool get_global_decode_plan(int k, int r, int z, const std::string &code_type,
                             const std::vector<int> &failed_block_indexes,
                             std::vector<int> &global_decode_block_indexes,

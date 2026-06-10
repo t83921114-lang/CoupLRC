@@ -213,6 +213,23 @@ target_link_libraries(recovery_audit
     -lgf_complete
 )
 
+# Maintenance-robust read leftover local fill 严格 GF 解验证(纯 GF, 无 gRPC / cluster)
+add_executable(maintenance_local_fill_verify
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/maintenance_local_fill_verify.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder_layout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/recovery_strategy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder.cpp
+    ${ASM_SOURCES}
+)
+target_include_directories(maintenance_local_fill_verify PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(maintenance_local_fill_verify
+    -lpthread
+    -lJerasure
+    -lgf_complete
+)
+
 # Exp#7: pure encoding microbenchmark (no gRPC / cluster)
 add_executable(encode_benchmark
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/encode_benchmark.cpp

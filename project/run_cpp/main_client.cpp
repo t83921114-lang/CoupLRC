@@ -12,6 +12,7 @@
 #include <random>
 #include "encoder.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <stdexcept>
 
 namespace {
@@ -118,6 +119,16 @@ void print_throughput_summary(const char *test_name,
 int local_recovery_block_num(const std::string &code_type)
 {
     return (code_type == "LotusLRC") ? 2 : 1;
+}
+
+// Local parity block id(s) of a local group: LotusLRC has 2 local parities per local group
+// (k+r+2*lg, k+r+2*lg+1), the other LRCs have 1 (k+r+lg).
+std::vector<int> local_parity_ids_of_group(const std::string &code_type, int k, int r, int z, int lg)
+{
+    (void)z;
+    if (code_type == "LotusLRC")
+        return {k + r + 2 * lg, k + r + 2 * lg + 1};
+    return {k + r + lg};
 }
 
 std::vector<int> multi_recovery_batch(const std::string &code_type, int r,
@@ -447,14 +458,46 @@ int main(int argc, char **argv)
         }
         else
         {
-            // N-1/N-2 split: prefix reconstructed via phase-1 cross-group global batch, the rest
-            // (1 block for Azure/Optimal/Uniform, 2 for Lotus) via phase-2 in-memory local fill
-            // (only the local parity is read anew; siblings reuse the same round's partials).
-            std::vector<int> global_batch = multi_recovery_batch(code_type, r, failed_data);
+            // Same N-1/N-2 split as single-rack repair, restricted to one local group: of the N
+            // blocks of the group that fell on the failed rack (data + co-located local parities),
+            // N-x go through the cross-group global batch and x stay as the leftover for local fill,
+            // where x = the group's local-parity count (LotusLRC: 2, the other LRCs: 1).
+            //
+            // Maintenance read only needs DATA, so we only reconstruct the data blocks among both
+            // sides. The x leftover slots are conceptually filled FIRST by the group's failed local
+            // parities (the read never has to solve those), then by data blocks; hence the number of
+            // DATA blocks actually local-filled is x - (failed local parities) = the surviving local
+            // parities. Co-locating a local parity on the failed rack therefore just shrinks the
+            // data leftover (down to 0 => everything goes through the global batch). We compute the
+            // leftover directly as that many trailing data blocks of the group.
+            auto parity_survives = [&](int pid) {
+                int gid = block_id_to_group(code_type, k, r, z, pid);
+                int cl = (test_stripe_id + gid) % config->ClusterNum;
+                return cl != failed_cluster_id;
+            };
+            // Choose the local group of the last failed data block; size the leftover to that
+            // group's surviving local parities.
+            int g_last = ECProject::get_block_id_to_local_group_id(code_type, k, r, z, failed_data.back());
+            std::vector<int> grp_failed_data;
+            for (int bid : failed_data)
+                if (ECProject::get_block_id_to_local_group_id(code_type, k, r, z, bid) == g_last)
+                    grp_failed_data.push_back(bid);
+            int surviving_parities = 0;
+            for (int pid : local_parity_ids_of_group(code_type, k, r, z, g_last))
+                if (parity_survives(pid))
+                    surviving_parities++;
+            int leftover_cnt = std::min<int>(surviving_parities, static_cast<int>(grp_failed_data.size()));
+            std::unordered_set<int> leftover_set(
+                grp_failed_data.end() - leftover_cnt, grp_failed_data.end());
+            std::vector<int> global_batch;
             std::vector<int> local_fill;
             for (int bid : failed_data)
-                if (std::find(global_batch.begin(), global_batch.end(), bid) == global_batch.end())
+            {
+                if (leftover_set.count(bid))
                     local_fill.push_back(bid);
+                else
+                    global_batch.push_back(bid);
+            }
 
             std::cout << "Maintenance-robust normal read test start (one rack, cluster "
                       << failed_cluster_id << ", stripe " << test_stripe_id << ", code "

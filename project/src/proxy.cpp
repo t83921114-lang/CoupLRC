@@ -1264,28 +1264,60 @@ namespace ECProject
           // Phase-1 global-batch partial (tag 0).
           send_partial(0, multi_res_buf, block_num);
 
-          // Maintenance two-phase: if this rack holds surviving members of the leftover's local
-          // group, also emit a 1-block local-fill partial (tag 1) = XOR of those held members.
-          if (maintenance_header && request_copy->local_member_block_ids_size() > 0)
+          // Maintenance two-phase strict GF local fill: if this rack holds source blocks of the
+          // leftover's local group, emit a tag=1 partial of leftover_num blocks where
+          //   row rr = sum over held sources s of coeff[rr][s] * block_s   (GF(2^8), not plain XOR).
+          // Coefficients come from the SAME plan the dest uses, so contributions combine exactly.
+          if (maintenance_header && request_copy->local_fill_source_ids_size() > 0 &&
+              request_copy->leftover_block_ids_size() > 0)
           {
-            std::unordered_set<int> member_set;
-            for (int j = 0; j < request_copy->local_member_block_ids_size(); j++)
-              member_set.insert(request_copy->local_member_block_ids(j));
-            std::vector<char *> held;
+            std::vector<int> lf_leftover;
+            for (int j = 0; j < request_copy->leftover_block_ids_size(); j++)
+              lf_leftover.push_back(request_copy->leftover_block_ids(j));
+            std::vector<int> lf_sources;
+            for (int j = 0; j < request_copy->local_fill_source_ids_size(); j++)
+              lf_sources.push_back(request_copy->local_fill_source_ids(j));
+            const int Rlf = static_cast<int>(lf_leftover.size());
+            const int Slf = static_cast<int>(lf_sources.size());
+            std::unordered_map<int, int> src_idx;
+            for (int j = 0; j < Slf; j++)
+              src_idx[lf_sources[j]] = j;
+
+            // Held sources on this rack = read blocks whose ids appear in the source list.
+            std::vector<unsigned char *> held_ptrs;
+            std::vector<int> held_src_col;
             for (int j = 0; j < request_copy->blockids_size(); j++)
-              if (member_set.count(request_copy->blockids(j)))
-                held.push_back(get_bufs[j]);
-            if (!held.empty())
             {
-              char *local_partial = static_cast<char *>(std::aligned_alloc(32, m_sys_config->BlockSize));
-              std::memcpy(local_partial, held[0], m_sys_config->BlockSize);
-              if (held.size() > 1)
+              auto it = src_idx.find(request_copy->blockids(j));
+              if (it != src_idx.end())
               {
-                std::vector<char *> xs(held.begin(), held.end());
-                xs.push_back(local_partial); // result accumulator
-                xor_avx(static_cast<int>(xs.size()), m_sys_config->BlockSize, (void **)xs.data());
+                held_ptrs.push_back(reinterpret_cast<unsigned char *>(get_bufs[j]));
+                held_src_col.push_back(it->second);
               }
-              send_partial(1, local_partial, 1);
+            }
+
+            std::vector<unsigned char> lf_coeffs;
+            if (!held_ptrs.empty() &&
+                get_local_fill_plan(m_sys_config->k, m_sys_config->r, m_sys_config->z, code_type,
+                                    lf_leftover, lf_sources, lf_coeffs))
+            {
+              const int H = static_cast<int>(held_ptrs.size());
+              // submatrix (Rlf x H): pick the columns for the held sources.
+              std::vector<unsigned char> submat(static_cast<size_t>(Rlf) * H);
+              for (int rr = 0; rr < Rlf; rr++)
+                for (int c = 0; c < H; c++)
+                  submat[static_cast<size_t>(rr) * H + c] =
+                      lf_coeffs[static_cast<size_t>(rr) * Slf + held_src_col[c]];
+              char *local_partial = static_cast<char *>(
+                  std::aligned_alloc(32, static_cast<size_t>(Rlf) * m_sys_config->BlockSize));
+              std::vector<unsigned char *> lf_out(Rlf);
+              for (int rr = 0; rr < Rlf; rr++)
+                lf_out[rr] = reinterpret_cast<unsigned char *>(local_partial) + static_cast<size_t>(rr) * m_sys_config->BlockSize;
+              std::vector<unsigned char> lf_tbls(static_cast<size_t>(H) * Rlf * 32);
+              ec_init_tables(H, Rlf, submat.data(), lf_tbls.data());
+              ec_encode_data_avx2(m_sys_config->BlockSize, H, Rlf, lf_tbls.data(),
+                                  held_ptrs.data(), lf_out.data());
+              send_partial(1, local_partial, Rlf);
               std::free(local_partial);
             }
           }
@@ -2188,67 +2220,112 @@ namespace ECProject
           res_buf = acc;
         }
 
-        // Local fill of the leftover block(s).
+        // Strict GF local fill of the leftover block(s):
+        //   leftover[rr] = sum over all local-group sources s of coeff[rr][s] * block_s   (GF(2^8)).
+        // Sources partition into: (a) dest-directly-read sources (local parity block(s) + any group
+        // member not read by a helper), carried in local_parity_* with ids in local_fill_source_ids;
+        // (b) already-reconstructed members from res_buf; (c) helper-held sources delivered as tag=1
+        // partials, each leftover_num blocks wide already weighted by their coefficients. Final
+        // leftover = (dest contribution) XOR (sum of helper partial rows).
         std::vector<char *> leftover_bufs(leftover_num, nullptr);
+        for (int rr = 0; rr < leftover_num; rr++)
+        {
+          leftover_bufs[rr] = static_cast<char *>(std::aligned_alloc(32, block_size));
+          std::memset(leftover_bufs[rr], 0, block_size);
+        }
         if (leftover_num > 0)
         {
-          // S = XOR of surviving siblings' partials (tag=1), one block wide.
-          char *S = static_cast<char *>(std::aligned_alloc(32, block_size));
-          std::memset(S, 0, block_size);
-          if (!local_bufs.empty())
+          std::vector<int> lf_leftover;
+          for (int i = 0; i < recovery_request->leftover_block_ids_size(); i++)
+            lf_leftover.push_back(recovery_request->leftover_block_ids(i));
+          std::vector<int> lf_sources;
+          for (int i = 0; i < recovery_request->local_fill_source_ids_size(); i++)
+            lf_sources.push_back(recovery_request->local_fill_source_ids(i));
+          const int Slf = static_cast<int>(lf_sources.size());
+          std::unordered_map<int, int> src_idx;
+          for (int j = 0; j < Slf; j++)
+            src_idx[lf_sources[j]] = j;
+
+          std::vector<unsigned char> lf_coeffs;
+          bool lf_ok = get_local_fill_plan(m_sys_config->k, m_sys_config->r, m_sys_config->z,
+                                           code_type, lf_leftover, lf_sources, lf_coeffs);
+          if (!lf_ok)
+            std::cout << "[Proxy" << m_self_cluster_id
+                      << "][Maintenance Read] local fill plan failed on dest!" << std::endl;
+
+          // Collect dest-held sources (ptr + its column in the source list).
+          std::vector<unsigned char *> dest_src_ptrs;
+          std::vector<int> dest_src_col;
+          std::vector<char *> dest_read_bufs; // owns directly-read source buffers
+          if (lf_ok)
           {
-            char *acc = static_cast<char *>(std::aligned_alloc(32, block_size));
-            std::vector<char *> ptrs(local_bufs.begin(), local_bufs.end());
-            ptrs.push_back(S);
-            ptrs.push_back(acc);
-            xor_avx(static_cast<int>(ptrs.size()), block_size, (void **)ptrs.data());
-            std::free(S);
-            S = acc;
-          }
-          // rc = XOR of reconstructed global-batch members that live in the leftover's local group.
-          char *rc = static_cast<char *>(std::aligned_alloc(32, block_size));
-          std::memset(rc, 0, block_size);
-          {
-            std::unordered_map<int, int> bid_to_slot;
-            for (int f = 0; f < block_num; f++)
-              bid_to_slot[recovery_request->failed_block_ids(f)] = f;
-            std::vector<char *> rc_ptrs;
-            for (int i = 0; i < recovery_request->reconstructed_lg_member_ids_size(); i++)
+            // (a) Directly-read sources (carried in local_parity_* fields).
+            for (int i = 0; i < recovery_request->local_parity_block_ids_size(); i++)
             {
-              auto it = bid_to_slot.find(recovery_request->reconstructed_lg_member_ids(i));
-              if (it != bid_to_slot.end())
-                rc_ptrs.push_back(res_buf + static_cast<size_t>(it->second) * block_size);
-            }
-            if (!rc_ptrs.empty())
-            {
-              char *acc = static_cast<char *>(std::aligned_alloc(32, block_size));
-              rc_ptrs.push_back(rc);
-              rc_ptrs.push_back(acc);
-              xor_avx(static_cast<int>(rc_ptrs.size()), block_size, (void **)rc_ptrs.data());
-              std::free(rc);
-              rc = acc;
-            }
-          }
-          // Read the local parity block(s) directly (the only new read of phase 2).
-          for (int i = 0; i < leftover_num; i++)
-          {
-            char *P = static_cast<char *>(std::aligned_alloc(32, block_size));
-            std::memset(P, 0, block_size);
-            if (i < recovery_request->local_parity_block_ids_size())
-            {
+              auto it = src_idx.find(recovery_request->local_parity_block_ids(i));
+              if (it == src_idx.end())
+                continue;
+              char *P = static_cast<char *>(std::aligned_alloc(32, block_size));
+              std::memset(P, 0, block_size);
               GetFromDatanode(recovery_request->local_parity_blockkeys(i), P, block_size,
                               recovery_request->local_parity_datanodeip(i).c_str(),
                               recovery_request->local_parity_datanodeport(i));
+              dest_read_bufs.push_back(P);
+              dest_src_ptrs.push_back(reinterpret_cast<unsigned char *>(P));
+              dest_src_col.push_back(it->second);
             }
-            // leftover = P ^ S ^ rc  (exact XOR for AzureLRC; placeholder combine for coded-parity codes).
-            char *L = static_cast<char *>(std::aligned_alloc(32, block_size));
-            char *xptrs[4] = {P, S, rc, L};
-            xor_avx(4, block_size, (void **)xptrs);
-            std::free(P);
-            leftover_bufs[i] = L;
+            // (b) Already-reconstructed members in res_buf.
+            std::unordered_map<int, int> bid_to_slot;
+            for (int f = 0; f < block_num; f++)
+              bid_to_slot[recovery_request->failed_block_ids(f)] = f;
+            for (int i = 0; i < recovery_request->reconstructed_lg_member_ids_size(); i++)
+            {
+              int mid = recovery_request->reconstructed_lg_member_ids(i);
+              auto its = src_idx.find(mid);
+              auto slot = bid_to_slot.find(mid);
+              if (its == src_idx.end() || slot == bid_to_slot.end())
+                continue;
+              dest_src_ptrs.push_back(reinterpret_cast<unsigned char *>(res_buf) +
+                                      static_cast<size_t>(slot->second) * block_size);
+              dest_src_col.push_back(its->second);
+            }
+            // Dest contribution: leftover_bufs[rr] = sum coeff[rr][s] * src_s  (overwrites zeros).
+            if (!dest_src_ptrs.empty())
+            {
+              const int H = static_cast<int>(dest_src_ptrs.size());
+              std::vector<unsigned char> submat(static_cast<size_t>(leftover_num) * H);
+              for (int rr = 0; rr < leftover_num; rr++)
+                for (int c = 0; c < H; c++)
+                  submat[static_cast<size_t>(rr) * H + c] =
+                      lf_coeffs[static_cast<size_t>(rr) * Slf + dest_src_col[c]];
+              std::vector<unsigned char *> lf_out(leftover_num);
+              for (int rr = 0; rr < leftover_num; rr++)
+                lf_out[rr] = reinterpret_cast<unsigned char *>(leftover_bufs[rr]);
+              std::vector<unsigned char> lf_tbls(static_cast<size_t>(H) * leftover_num * 32);
+              ec_init_tables(H, leftover_num, submat.data(), lf_tbls.data());
+              ec_encode_data_avx2(block_size, H, leftover_num, lf_tbls.data(),
+                                  dest_src_ptrs.data(), lf_out.data());
+            }
           }
-          std::free(S);
-          std::free(rc);
+
+          // XOR in the helper tag=1 partials (each leftover_num blocks wide, already weighted).
+          for (int rr = 0; rr < leftover_num; rr++)
+          {
+            if (local_bufs.empty())
+              break;
+            std::vector<char *> xs;
+            xs.push_back(leftover_bufs[rr]);
+            for (char *lb : local_bufs)
+              xs.push_back(lb + static_cast<size_t>(rr) * block_size);
+            char *acc = static_cast<char *>(std::aligned_alloc(32, block_size));
+            xs.push_back(acc);
+            xor_avx(static_cast<int>(xs.size()), block_size, (void **)xs.data());
+            std::free(leftover_bufs[rr]);
+            leftover_bufs[rr] = acc;
+          }
+
+          for (char *b : dest_read_bufs)
+            std::free(b);
         }
 
         // Stream all (global-batch + leftover) blocks to the client (block-id prefixed).

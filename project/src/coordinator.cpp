@@ -2806,25 +2806,34 @@ namespace ECProject
       return false;
     }
 
-    // Local parity block id(s) of this local group.
+    // All local parity block id(s) of this local group.
+    std::vector<int> all_local_parity_ids;
     if (code == "LotusLRC") {
-      local_parity_ids.push_back(k + r + 2 * lg);
-      local_parity_ids.push_back(k + r + 2 * lg + 1);
+      all_local_parity_ids.push_back(k + r + 2 * lg);
+      all_local_parity_ids.push_back(k + r + 2 * lg + 1);
     } else {
-      local_parity_ids.push_back(k + r + lg);
+      all_local_parity_ids.push_back(k + r + lg);
     }
 
     const int dest_cluster_id = t_stripe.blocks[leftover[0]]->map2cluster;
-    // The local parity must survive (be on another rack) to be used for the local fill.
-    for (int pid : local_parity_ids) {
+    // N-1/N-2 split (as in single-rack repair): of the group's failed blocks, x stay as the
+    // leftover (x = local-parity count). Those x slots first absorb the group's failed local
+    // parities (which the read never solves), so only the surviving local parities are available to
+    // local-fill the DATA leftover. Hence keep only the SURVIVING local parities here, and the
+    // leftover is feasible iff #surviving local parities >= #leftover (data) blocks. A co-located
+    // local parity on the failed rack just shrinks the data leftover instead of forcing a fallback.
+    for (int pid : all_local_parity_ids) {
       if (pid < 0 || pid >= static_cast<int>(t_stripe.blocks.size())) {
         note = "local parity id out of range";
         return false;
       }
-      if (t_stripe.blocks[pid]->map2cluster == dest_cluster_id) {
-        note = "local parity of the leftover's group is also on the failed rack";
-        return false;
-      }
+      if (t_stripe.blocks[pid]->map2cluster != dest_cluster_id)
+        local_parity_ids.push_back(pid);
+    }
+    if (local_parity_ids.size() < leftover.size()) {
+      note = "not enough surviving local parities for the leftover count (need " +
+             std::to_string(leftover.size()) + ", have " + std::to_string(local_parity_ids.size()) + ")";
+      return false;
     }
 
     // Surviving data members of the local group (other racks).
@@ -2903,26 +2912,71 @@ namespace ECProject
     int dest_proxy_port = m_cluster_table[dest_cluster_id].proxy_port;
     std::string dest_proxy_key = dest_proxy_ip + ":" + std::to_string(dest_proxy_port);
 
+    const int k = m_sys_config->k;
+    const int r = m_sys_config->r;
+    const int z = m_sys_config->z;
+    const std::string &code = m_sys_config->CodeType;
+    const int nrows = k + r + z;
+    const int lg = ECProject::get_block_id_to_local_group_id(code, k, r, z, leftover[0]);
+
+    // ---- Strict GF local-fill source partition over the leftover's local group ----
+    // Candidate sources = all members of the local group except the leftover block(s). Each is
+    // owned by exactly one party so it contributes exactly once to the GF solve:
+    //   - reconstructed_lg_members: failed DATA members reconstructed by the global batch (res_buf).
+    //   - helper-owned: surviving members already read by a helper for the global batch
+    //     (carried in decode_block_ids) -> contributed as weighted tag=1 partials.
+    //   - dest_read_source_ids: surviving members NOT read by any helper (e.g. the local parity
+    //     block(s)) -> read directly by the dest.
+    // Members on the failed rack that are neither leftover nor reconstructed are unavailable.
+    std::unordered_set<int> decode_set(decode_block_ids.begin(), decode_block_ids.end());
+    std::unordered_set<int> recon_set(global_batch.begin(), global_batch.end());
+    std::unordered_set<int> leftover_set(leftover.begin(), leftover.end());
+    std::vector<int> reconstructed_lg_members;
+    std::vector<int> source_block_ids;
+    std::vector<int> dest_read_source_ids;
+    for (int b = 0; b < nrows; b++)
+    {
+      if (ECProject::get_block_id_to_local_group_id(code, k, r, z, b) != lg)
+        continue;
+      if (leftover_set.count(b))
+        continue;
+      if (recon_set.count(b))
+      {
+        reconstructed_lg_members.push_back(b);
+        source_block_ids.push_back(b);
+        continue;
+      }
+      if (t_stripe.blocks[b]->map2cluster == dest_cluster_id)
+        continue; // on the failed rack and not reconstructed -> unavailable
+      source_block_ids.push_back(b);
+      if (!decode_set.count(b))
+        dest_read_source_ids.push_back(b); // not read by a helper -> dest reads it directly
+    }
+    std::sort(source_block_ids.begin(), source_block_ids.end());
+
+    // Feasibility: the available sources must span the leftover block(s); else fall back.
+    {
+      std::vector<unsigned char> coeffs_check;
+      if (!ECProject::get_local_fill_plan(k, r, z, code, leftover, source_block_ids, coeffs_check))
+      {
+        std::cout << "[Coordinator] maintenance local fill not GF-solvable from available sources"
+                  << " (stripe " << stripe_id << ", lg " << lg << "), falling back to all-global"
+                  << std::endl;
+        return execute_global_degraded_read_to_client(stripe_id, failed_data, client_ip, client_port);
+      }
+    }
+
+    std::unordered_set<int> source_set(source_block_ids.begin(), source_block_ids.end());
     int cross_rack_num = 0;
     int local_fill_sender_num = 0;
-    std::unordered_set<int> sibling_set(surviving_siblings.begin(), surviving_siblings.end());
     for (size_t i = 0; i < clusters_with_blocks.size(); i++)
     {
       if (clusters_with_blocks[i] == dest_cluster_id)
         continue;
       cross_rack_num++;
       for (int bid : decode_blocks_per_cluster[i])
-        if (sibling_set.count(bid)) { local_fill_sender_num++; break; }
+        if (source_set.count(bid)) { local_fill_sender_num++; break; }
     }
-
-    // global-batch blocks that belong to the leftover's local group (reconstructed siblings).
-    const int lg = ECProject::get_block_id_to_local_group_id(
-        m_sys_config->CodeType, m_sys_config->k, m_sys_config->r, m_sys_config->z, leftover[0]);
-    std::vector<int> reconstructed_lg_members;
-    for (int bid : global_batch)
-      if (ECProject::get_block_id_to_local_group_id(m_sys_config->CodeType, m_sys_config->k,
-                                                    m_sys_config->r, m_sys_config->z, bid) == lg)
-        reconstructed_lg_members.push_back(bid);
 
     std::vector<std::string> failed_keys(recover_num);
     for (int f = 0; f < recover_num; f++)
@@ -2931,7 +2985,7 @@ namespace ECProject
     std::vector<std::thread> threads;
     grpc::Status dest_status;
     std::mutex dest_status_mutex;
-    threads.push_back(std::thread([this, &t_stripe, dest_proxy_key, dest_cluster_id, recover_num, &failed_data, &recover, &decode_block_ids, &failed_keys, client_ip, client_port, cross_rack_num, local_fill_sender_num, &decode_blocks_per_cluster, &clusters_with_blocks, &leftover, &local_parity_ids, &surviving_siblings, &reconstructed_lg_members, &dest_status, &dest_status_mutex]() {
+    threads.push_back(std::thread([this, &t_stripe, dest_proxy_key, dest_cluster_id, recover_num, &failed_data, &recover, &decode_block_ids, &failed_keys, client_ip, client_port, cross_rack_num, local_fill_sender_num, &decode_blocks_per_cluster, &clusters_with_blocks, &leftover, &dest_read_source_ids, &source_block_ids, &reconstructed_lg_members, &dest_status, &dest_status_mutex]() {
       grpc::ClientContext recovery_context;
       proxy_proto::RecoveryRequest recovery_request;
       proxy_proto::RecoveryReply recovery_reply;
@@ -2954,10 +3008,15 @@ namespace ECProject
         recovery_request.add_leftover_block_ids(bid);
       for (int bid : reconstructed_lg_members)
         recovery_request.add_reconstructed_lg_member_ids(bid);
-      for (int pid : local_parity_ids)
+      for (int bid : source_block_ids)
+        recovery_request.add_local_fill_source_ids(bid);
+      // Dest-directly-read sources (the surviving local parity block(s) plus any group member not
+      // read by a helper). Carried in the local_parity_* fields; the dest reads each and applies
+      // its GF coefficient from the local-fill plan.
+      for (int sid : dest_read_source_ids)
       {
-        Block *pb = t_stripe.blocks[pid];
-        recovery_request.add_local_parity_block_ids(pid);
+        Block *pb = t_stripe.blocks[sid];
+        recovery_request.add_local_parity_block_ids(sid);
         recovery_request.add_local_parity_datanodeip(m_node_table[pb->map2node].node_ip);
         recovery_request.add_local_parity_datanodeport(m_node_table[pb->map2node].node_port);
         recovery_request.add_local_parity_blockkeys(pb->block_key);
@@ -2978,7 +3037,7 @@ namespace ECProject
       if (clusters_with_blocks[i] == dest_cluster_id)
         continue;
       std::string proxy_key = m_cluster_table[clusters_with_blocks[i]].proxy_ip + ":" + std::to_string(m_cluster_table[clusters_with_blocks[i]].proxy_port);
-      threads.push_back(std::thread([this, &t_stripe, proxy_key, dest_proxy_ip, dest_proxy_port, recover_num, &failed_data, &recover, &decode_block_ids, &decode_blocks_per_cluster, &surviving_siblings, i]() {
+      threads.push_back(std::thread([this, &t_stripe, proxy_key, dest_proxy_ip, dest_proxy_port, recover_num, &failed_data, &recover, &decode_block_ids, &decode_blocks_per_cluster, &leftover, &source_block_ids, i]() {
         grpc::ClientContext degraded_context;
         proxy_proto::DegradedReadRequest degraded_request;
         proxy_proto::DegradedReadReply degraded_reply;
@@ -2991,8 +3050,12 @@ namespace ECProject
           degraded_request.add_failed_block_ids(recover[j]);
         for (int bid : decode_block_ids)
           degraded_request.add_decode_block_ids(bid);
-        for (int bid : surviving_siblings)
-          degraded_request.add_local_member_block_ids(bid);
+        // Strict GF local fill: every helper recomputes the same coefficient matrix from
+        // (leftover_block_ids, local_fill_source_ids) and weights the sources it holds.
+        for (int bid : leftover)
+          degraded_request.add_leftover_block_ids(bid);
+        for (int bid : source_block_ids)
+          degraded_request.add_local_fill_source_ids(bid);
         add_block_list_to_degraded_read_request(t_stripe, decode_blocks_per_cluster[i], &degraded_request);
         grpc::Status st = m_proxy_ptrs[proxy_key]->degradedRead(&degraded_context, degraded_request, &degraded_reply);
         if (!st.ok())
