@@ -296,26 +296,26 @@ int main(int argc, char **argv)
 
 
     // for one block recovery
-    {
-        const double recovered_mb = block_size;
-        std::vector<std::chrono::duration<double>> one_block_recovery_time_spans;
-        std::cout << "One block recovery test start" << std::endl;
-        for (int i = 0; i < 10; i++)
-        {
-            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-            client.recovery(0, 0);
-            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> time_span =
-                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-            one_block_recovery_time_spans.push_back(time_span);
-            if (time_span.count() > 0)
-                std::cout << "[" << i << "th] One block recovery throughput: "
-                          << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
-        }
-        print_throughput_summary("One block recovery", one_block_recovery_time_spans, recovered_mb);
-        std::cout << "One block recovery test end" << std::endl;
-        std::cout << std::endl;
-    }
+    // {
+    //     const double recovered_mb = block_size;
+    //     std::vector<std::chrono::duration<double>> one_block_recovery_time_spans;
+    //     std::cout << "One block recovery test start" << std::endl;
+    //     for (int i = 0; i < 10; i++)
+    //     {
+    //         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    //         client.recovery(0, 0);
+    //         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    //         std::chrono::duration<double> time_span =
+    //             std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    //         one_block_recovery_time_spans.push_back(time_span);
+    //         if (time_span.count() > 0)
+    //             std::cout << "[" << i << "th] One block recovery throughput: "
+    //                       << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
+    //     }
+    //     print_throughput_summary("One block recovery", one_block_recovery_time_spans, recovered_mb);
+    //     std::cout << "One block recovery test end" << std::endl;
+    //     std::cout << std::endl;
+    // }
 
     // for two block recovery (test blocks 0 and 1)
     // {
@@ -415,7 +415,84 @@ int main(int argc, char **argv)
     //     }
     // }
 
-    
+    // Maintenance-robust normal read: one rack (cluster) is under maintenance / failed, which
+    // takes out several blocks of the stripe. We read the whole stripe's data blocks by first
+    // reconstructing the failed rack's DATA blocks in memory (no disk write-back) using the
+    // single-rack N-1/N-2 split (cross-group global batch + in-memory local fill), then reading
+    // the surviving data blocks directly.
+    {
+        const int test_stripe_id = 0;
+        const int failed_cluster_id = 0;
+        std::vector<int> first_rack_failed;
+        try
+        {
+            first_rack_failed = blocks_on_cluster(
+                code_type, k, r, z, n, test_stripe_id, failed_cluster_id, config->ClusterNum);
+        }
+        catch (const std::exception &e)
+        {
+            std::cout << "Layout lookup failed: " << e.what() << std::endl;
+            return -1;
+        }
+        // Only data blocks (block_id < k) are reconstructed/read.
+        std::vector<int> failed_data;
+        for (int bid : first_rack_failed)
+            if (bid < k)
+                failed_data.push_back(bid);
+
+        if (failed_data.empty())
+        {
+            std::cout << "No data blocks on cluster " << failed_cluster_id << " for stripe "
+                      << test_stripe_id << ", skip maintenance-robust read test" << std::endl;
+        }
+        else
+        {
+            // N-1/N-2 split: prefix reconstructed via phase-1 cross-group global batch, the rest
+            // (1 block for Azure/Optimal/Uniform, 2 for Lotus) via phase-2 in-memory local fill
+            // (only the local parity is read anew; siblings reuse the same round's partials).
+            std::vector<int> global_batch = multi_recovery_batch(code_type, r, failed_data);
+            std::vector<int> local_fill;
+            for (int bid : failed_data)
+                if (std::find(global_batch.begin(), global_batch.end(), bid) == global_batch.end())
+                    local_fill.push_back(bid);
+
+            std::cout << "Maintenance-robust normal read test start (one rack, cluster "
+                      << failed_cluster_id << ", stripe " << test_stripe_id << ", code "
+                      << code_type << ")" << std::endl;
+            print_block_ids("  Failed blocks on rack (layout+placement):", first_rack_failed);
+            print_block_ids("  Failed DATA blocks to reconstruct:", failed_data);
+            print_block_ids("  Phase-1 DATA blocks via cross-group global batch:", global_batch);
+            print_block_ids("  Phase-2 DATA blocks via in-memory local fill:", local_fill);
+
+            // Whole-stripe read throughput: k data blocks delivered to the client.
+            const double recovered_mb = static_cast<double>(k) * block_size;
+            std::vector<std::chrono::duration<double>> maintenance_read_time_spans;
+            for (int i = 0; i < 10; i++)
+            {
+                size_t data_size = 0;
+                std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+                std::shared_ptr<char[]> data =
+                    client.maintenance_read(test_stripe_id, failed_data, global_batch, data_size);
+                std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+                if (!data)
+                {
+                    std::cout << "Maintenance-robust read operation failed" << std::endl;
+                    continue;
+                }
+                std::chrono::duration<double> time_span =
+                    std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+                maintenance_read_time_spans.push_back(time_span);
+                if (time_span.count() > 0)
+                    std::cout << "[" << i << "th] Maintenance-robust read throughput: "
+                              << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
+            }
+            print_throughput_summary("Maintenance-robust normal read",
+                                     maintenance_read_time_spans, recovered_mb);
+            std::cout << "Maintenance-robust normal read test end" << std::endl;
+            std::cout << std::endl;
+        }
+    }
+
     // const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
 
     //Full node repair: rand over [0, ClusterNum*DatanodeNumPerCluster) (replaces legacy 19*30)

@@ -118,6 +118,10 @@ namespace ECProject
       grpc::ServerContext *context,
       const coordinator_proto::StripeIdAndBlockIDsFromClient *request,
       coordinator_proto::RecoveryReply *replyClient) override;
+    grpc::Status maintenanceReadStripe(
+      grpc::ServerContext *context,
+      const coordinator_proto::MaintenanceReadRequest *request,
+      coordinator_proto::RecoveryReply *replyClient) override;
     // delete
     grpc::Status delByKey(
         grpc::ServerContext *context,
@@ -168,6 +172,33 @@ namespace ECProject
         const std::vector<std::pair<int, std::vector<int>>> &plan);
     bool execute_global_recovery(int stripe_id, const std::vector<int> &all_failed,
                                  const std::vector<int> &recovery_block_ids);
+    // Maintenance-robust read (fallback path): single-round all-global decode of all failed data
+    // blocks at the dest proxy, streamed back to the client in memory (no disk write-back).
+    bool execute_global_degraded_read_to_client(int stripe_id, const std::vector<int> &all_failed,
+                                                std::string client_ip, int client_port);
+    // Maintenance-robust read (preferred two-phase path): reconstruct the global-batch (N-1/N-2)
+    // in dest memory AND, in the same round, in-memory local-fill the leftover block(s) using the
+    // surviving local-group siblings' partials + the directly-read local parity, then stream the
+    // whole failed-rack data set to the client. No disk write-back.
+    bool execute_two_phase_degraded_read_to_client(int stripe_id,
+                                                   const std::vector<int> &failed_data,
+                                                   const std::vector<int> &global_batch,
+                                                   const std::vector<int> &leftover,
+                                                   std::string client_ip, int client_port);
+    // Decide whether the two-phase local fill is feasible for the given leftover blocks. On
+    // success fills local_parity_ids (per leftover's local group) and surviving_siblings; on
+    // failure returns false and sets note (e.g. local parity also on the failed rack).
+    bool plan_maintenance_local_fill(int stripe_id, const std::vector<int> &failed_data,
+                                     const std::vector<int> &leftover,
+                                     std::vector<int> &local_parity_ids,
+                                     std::vector<int> &surviving_siblings,
+                                     std::string &note);
+    // Driver that reads surviving data blocks directly + reconstructs the failed rack's data
+    // blocks to the client, assembling the whole stripe (k data blocks) at the client.
+    void maintenance_read_driver(int stripe_id, std::vector<int> failed_data_block_ids,
+                                 std::vector<int> global_batch_block_ids,
+                                 bool fell_back,
+                                 std::string client_ip, int client_port);
     bool stripe_recovery_for_failed_blocks(int stripe_id, const std::vector<int> &failed_blocks);
     bool recovery_one_block_breakdown(int stripe_id, int failed_block_id, 
       std::vector<double> &disk_io_start_time, std::vector<double> &disk_io_end_time, std::vector<double> &decode_start_time, std::vector<double> &decode_end_time,

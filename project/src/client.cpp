@@ -799,7 +799,80 @@ namespace ECProject
     
     return data_ptr_array;
   }
-  
+
+  std::shared_ptr<char[]> Client::maintenance_read(int stripe_id,
+                                                   const std::vector<int> &failed_data_block_ids,
+                                                   const std::vector<int> &global_batch_block_ids,
+                                                   size_t &data_size)
+  {
+    grpc::ClientContext context;
+    coordinator_proto::MaintenanceReadRequest request;
+    request.set_stripe_id(stripe_id);
+    for (int bid : failed_data_block_ids)
+      request.add_failed_data_block_ids(bid);
+    for (int bid : global_batch_block_ids)
+      request.add_global_batch_block_ids(bid);
+    request.set_clientip(m_clientIPForGet);
+    request.set_clientport(m_clientPortForGet);
+
+    coordinator_proto::RecoveryReply reply;
+    // The coordinator dispatches the work and returns immediately; the proxies (surviving block
+    // reads + dest reconstruction) then connect back to us. Issue the RPC in a side thread so we
+    // can accept those connections concurrently.
+    bool rpc_ok = true;
+    std::thread notify_thread([&context, &request, &reply, this, &rpc_ok]() {
+      grpc::Status status = m_coordinator_ptr->maintenanceReadStripe(&context, request, &reply);
+      if (!status.ok())
+      {
+        rpc_ok = false;
+        std::cout << "[Client] maintenance read failed!" << std::endl;
+      }
+    });
+
+    int data_block_num = m_sys_config->k;
+    int block_size = m_sys_config->BlockSize;
+    data_size = static_cast<size_t>(data_block_num) * static_cast<size_t>(block_size);
+    std::shared_ptr<char[]> data_ptr_array(new char[data_size]);
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < data_block_num; i++)
+    {
+      threads.push_back(std::thread([this, data_ptr_array, block_size]() mutable {
+        asio::io_context io_context;
+        asio::ip::tcp::socket socket_data(io_context);
+        this->acceptor.accept(socket_data);
+        uint32_t block_id;
+        asio::read(socket_data, asio::buffer(&block_id, sizeof(uint32_t)));
+        asio::error_code error;
+        size_t len = asio::read(socket_data, asio::buffer(data_ptr_array.get() + static_cast<size_t>(block_id) * static_cast<size_t>(block_size), block_size), error);
+        if (len != static_cast<size_t>(block_size))
+        {
+          std::cout << "[Client] maintenance read block failed!" << std::endl;
+        }
+        asio::error_code ignore_ec;
+        socket_data.shutdown(asio::ip::tcp::socket::shutdown_receive, ignore_ec);
+        socket_data.close(ignore_ec);
+      }));
+    }
+
+    for (auto &thread : threads)
+    {
+      thread.join();
+    }
+    notify_thread.join();
+    if (!rpc_ok)
+    {
+      return nullptr;
+    }
+    if (reply.maintenance_fell_back())
+    {
+      std::cout << "[Client] maintenance read FELL BACK to all-global single-round decode"
+                << " (reason: " << reply.maintenance_note()
+                << "); measured numbers are post-fallback." << std::endl;
+    }
+    return data_ptr_array;
+  }
+
   //for workload
   std::shared_ptr<char[]> Client::get_blocks(int start_block_id, int end_block_id)
   {

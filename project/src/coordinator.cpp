@@ -2637,6 +2637,501 @@ namespace ECProject
     return true;
   }
 
+  // Maintenance-robust read: reconstruct every failed data block (all_failed) at the dest proxy
+  // in a single in-memory global-decode round, then stream each reconstructed block straight to
+  // the client (no disk write-back). Mirrors execute_global_recovery but redirects the dest output
+  // to the client. The cross-group global batch (N-1/N-2) and the in-memory local fill (本地补齐)
+  // are both produced by this one decode round at the dest proxy.
+  bool CoordinatorImpl::execute_global_degraded_read_to_client(int stripe_id,
+                                                               const std::vector<int> &all_failed,
+                                                               std::string client_ip, int client_port)
+  {
+    const int all_failed_num = static_cast<int>(all_failed.size());
+    if (all_failed_num == 0)
+      return true;
+    const std::vector<int> &recover = all_failed; // reconstruct all failed data blocks
+    const int recover_num = all_failed_num;
+
+    std::vector<int> decode_block_ids;
+    int rows = 0, cols = 0;
+    bool ifGetDecodePlanSuccess = ECProject::get_global_decode_plan(
+        m_sys_config->k, m_sys_config->r, m_sys_config->z, m_sys_config->CodeType,
+        all_failed, decode_block_ids, nullptr, nullptr, rows, cols, nullptr);
+    if (!ifGetDecodePlanSuccess) {
+      std::cout << "[Coordinator] maintenance read: get global decode plan failed!" << std::endl;
+      return false;
+    }
+
+    Stripe &t_stripe = m_stripe_table[stripe_id];
+    std::vector<int> clusters_with_blocks;
+    std::vector<std::vector<int>> decode_blocks_per_cluster;
+    for (size_t i = 0; i < decode_block_ids.size(); i++)
+    {
+      int cid = t_stripe.blocks[decode_block_ids[i]]->map2cluster;
+      auto it = std::find(clusters_with_blocks.begin(), clusters_with_blocks.end(), cid);
+      if (it == clusters_with_blocks.end())
+      {
+        clusters_with_blocks.push_back(cid);
+        decode_blocks_per_cluster.push_back(std::vector<int>(1, decode_block_ids[i]));
+      }
+      else
+      {
+        size_t idx = std::distance(clusters_with_blocks.begin(), it);
+        decode_blocks_per_cluster[idx].push_back(decode_block_ids[i]);
+      }
+    }
+    // Dest cluster: the failed rack (where the failed data blocks live).
+    int dest_cluster_id = t_stripe.blocks[recover[0]]->map2cluster;
+    std::string dest_proxy_ip = m_cluster_table[dest_cluster_id].proxy_ip;
+    int dest_proxy_port = m_cluster_table[dest_cluster_id].proxy_port;
+    std::string dest_proxy_key = dest_proxy_ip + ":" + std::to_string(dest_proxy_port);
+    int cross_rack_num = 0;
+    for (size_t i = 0; i < clusters_with_blocks.size(); i++)
+      if (clusters_with_blocks[i] != dest_cluster_id)
+        cross_rack_num++;
+
+    std::vector<std::string> failed_keys(recover_num);
+    for (int f = 0; f < recover_num; f++)
+      failed_keys[f] = t_stripe.blocks[recover[f]]->block_key;
+
+    std::vector<std::thread> threads;
+    grpc::Status dest_status;
+    std::mutex dest_status_mutex;
+    threads.push_back(std::thread([this, &t_stripe, dest_proxy_key, dest_cluster_id, stripe_id, recover_num, &all_failed, &recover, &decode_block_ids, &failed_keys, client_ip, client_port, cross_rack_num, &decode_blocks_per_cluster, &clusters_with_blocks, &dest_status, &dest_status_mutex]() {
+      grpc::ClientContext recovery_context;
+      proxy_proto::RecoveryRequest recovery_request;
+      proxy_proto::RecoveryReply recovery_reply;
+      recovery_request.set_cross_rack_num(cross_rack_num);
+      // Stream every reconstructed block straight to the client (no disk write-back).
+      recovery_request.set_send_to_client(true);
+      recovery_request.set_replaced_node_ip(client_ip);
+      recovery_request.set_replaced_node_port(client_port);
+      for (size_t i = 0; i < all_failed.size(); i++)
+        recovery_request.add_all_failed_block_ids(all_failed[i]);
+      for (int i = 0; i < recover_num; i++)
+      {
+        recovery_request.add_failed_block_ids(recover[i]);
+        recovery_request.add_failed_block_keys(failed_keys[i]);
+        recovery_request.add_replaced_node_ips(client_ip);
+        recovery_request.add_replaced_node_ports(client_port);
+      }
+      for (size_t i = 0; i < decode_block_ids.size(); i++)
+        recovery_request.add_decode_block_ids(decode_block_ids[i]);
+      size_t dest_idx = 0;
+      for (; dest_idx < clusters_with_blocks.size(); dest_idx++)
+        if (clusters_with_blocks[dest_idx] == dest_cluster_id)
+          break;
+      if (dest_idx < clusters_with_blocks.size())
+        add_block_list_to_recovery_request(t_stripe, decode_blocks_per_cluster[dest_idx], &recovery_request);
+      grpc::Status st = m_proxy_ptrs[dest_proxy_key]->recovery(&recovery_context, recovery_request, &recovery_reply);
+      std::lock_guard<std::mutex> lock(dest_status_mutex);
+      dest_status = st;
+    }));
+
+    for (size_t i = 0; i < clusters_with_blocks.size(); i++)
+    {
+      if (clusters_with_blocks[i] == dest_cluster_id)
+        continue;
+      std::string proxy_key = m_cluster_table[clusters_with_blocks[i]].proxy_ip + ":" + std::to_string(m_cluster_table[clusters_with_blocks[i]].proxy_port);
+      threads.push_back(std::thread([this, &t_stripe, proxy_key, dest_proxy_ip, dest_proxy_port, stripe_id, recover_num, &all_failed, &recover, &decode_block_ids, &decode_blocks_per_cluster, i]() {
+        grpc::ClientContext degraded_context;
+        proxy_proto::DegradedReadRequest degraded_request;
+        proxy_proto::DegradedReadReply degraded_reply;
+        degraded_request.set_clientip(dest_proxy_ip);
+        degraded_request.set_clientport(dest_proxy_port + ECProject::PROXY_PORT_SHIFT);
+        for (size_t j = 0; j < all_failed.size(); j++)
+          degraded_request.add_all_failed_block_ids(all_failed[j]);
+        for (int j = 0; j < recover_num; j++)
+          degraded_request.add_failed_block_ids(recover[j]);
+        for (size_t j = 0; j < decode_block_ids.size(); j++)
+          degraded_request.add_decode_block_ids(decode_block_ids[j]);
+        add_block_list_to_degraded_read_request(t_stripe, decode_blocks_per_cluster[i], &degraded_request);
+        grpc::Status st = m_proxy_ptrs[proxy_key]->degradedRead(&degraded_context, degraded_request, &degraded_reply);
+        if (!st.ok())
+          std::cout << "[Coordinator] maintenance read degradedRead from proxy " << proxy_key << " failed: " << st.error_message() << std::endl;
+      }));
+    }
+
+    for (size_t i = 1; i < threads.size(); i++)
+      threads[i].detach();
+    threads[0].join();
+
+    {
+      std::lock_guard<std::mutex> lock(dest_status_mutex);
+      if (!dest_status.ok()) {
+        std::cout << "[Coordinator] maintenance read global decode on dest failed: "
+                  << dest_status.error_message() << std::endl;
+        return false;
+      }
+    }
+    std::cout << "[Coordinator] maintenance read global decode success for stripe " << stripe_id
+              << " reconstructed " << recover_num << " data block(s) to client" << std::endl;
+    return true;
+  }
+
+  // Decide whether the leftover block(s) can be locally filled in phase 2. Requires that all
+  // leftover blocks share one local group whose local parity block(s) survive (are NOT on the
+  // failed rack). Fills local_parity_ids and surviving_siblings (surviving data members of that
+  // local group, on other racks).
+  bool CoordinatorImpl::plan_maintenance_local_fill(int stripe_id,
+                                                    const std::vector<int> &failed_data,
+                                                    const std::vector<int> &leftover,
+                                                    std::vector<int> &local_parity_ids,
+                                                    std::vector<int> &surviving_siblings,
+                                                    std::string &note)
+  {
+    local_parity_ids.clear();
+    surviving_siblings.clear();
+    if (leftover.empty()) {
+      note = "no leftover block to local-fill";
+      return false;
+    }
+    const int k = m_sys_config->k;
+    const int r = m_sys_config->r;
+    const int z = m_sys_config->z;
+    const std::string &code = m_sys_config->CodeType;
+    Stripe &t_stripe = m_stripe_table[stripe_id];
+
+    // All leftover blocks must belong to a single local group.
+    int lg = -1;
+    try {
+      lg = ECProject::get_block_id_to_local_group_id(code, k, r, z, leftover[0]);
+      for (int bid : leftover)
+        if (ECProject::get_block_id_to_local_group_id(code, k, r, z, bid) != lg) {
+          note = "leftover blocks span multiple local groups";
+          return false;
+        }
+    } catch (const std::exception &e) {
+      note = std::string("local group lookup failed: ") + e.what();
+      return false;
+    }
+
+    // Local parity block id(s) of this local group.
+    if (code == "LotusLRC") {
+      local_parity_ids.push_back(k + r + 2 * lg);
+      local_parity_ids.push_back(k + r + 2 * lg + 1);
+    } else {
+      local_parity_ids.push_back(k + r + lg);
+    }
+
+    const int dest_cluster_id = t_stripe.blocks[leftover[0]]->map2cluster;
+    // The local parity must survive (be on another rack) to be used for the local fill.
+    for (int pid : local_parity_ids) {
+      if (pid < 0 || pid >= static_cast<int>(t_stripe.blocks.size())) {
+        note = "local parity id out of range";
+        return false;
+      }
+      if (t_stripe.blocks[pid]->map2cluster == dest_cluster_id) {
+        note = "local parity of the leftover's group is also on the failed rack";
+        return false;
+      }
+    }
+
+    // Surviving data members of the local group (other racks).
+    std::unordered_set<int> failed_set(failed_data.begin(), failed_data.end());
+    for (int bid = 0; bid < k; bid++) {
+      if (failed_set.count(bid))
+        continue;
+      int bid_lg = -1;
+      try { bid_lg = ECProject::get_block_id_to_local_group_id(code, k, r, z, bid); }
+      catch (...) { continue; }
+      if (bid_lg == lg)
+        surviving_siblings.push_back(bid);
+    }
+    return true;
+  }
+
+  // Two-phase maintenance read: reconstruct the global batch (N-1/N-2) in dest memory and, in the
+  // same round, in-memory local-fill the leftover block(s); stream all failed-rack data blocks to
+  // the client. Phase 2 adds only the local parity read at the dest; the surviving siblings arrive
+  // as tiny tag=1 partials produced by the same helpers that serve the global batch.
+  bool CoordinatorImpl::execute_two_phase_degraded_read_to_client(int stripe_id,
+                                                                  const std::vector<int> &failed_data,
+                                                                  const std::vector<int> &global_batch,
+                                                                  const std::vector<int> &leftover,
+                                                                  std::string client_ip, int client_port)
+  {
+    if (global_batch.empty()) {
+      // Pure local recovery (failed count <= local-parity count): no cross-group batch needed.
+      // Reuse the all-global path for simplicity (rare; the leftover set is tiny).
+      return execute_global_degraded_read_to_client(stripe_id, failed_data, client_ip, client_port);
+    }
+
+    std::vector<int> local_parity_ids;
+    std::vector<int> surviving_siblings;
+    std::string note;
+    if (!plan_maintenance_local_fill(stripe_id, failed_data, leftover, local_parity_ids, surviving_siblings, note)) {
+      std::cout << "[Coordinator] maintenance two-phase not feasible (" << note
+                << "), falling back to all-global" << std::endl;
+      return execute_global_degraded_read_to_client(stripe_id, failed_data, client_ip, client_port);
+    }
+
+    const std::vector<int> &recover = global_batch;
+    const int recover_num = static_cast<int>(recover.size());
+
+    std::vector<int> decode_block_ids;
+    int rows = 0, cols = 0;
+    bool ok = ECProject::get_global_decode_plan(
+        m_sys_config->k, m_sys_config->r, m_sys_config->z, m_sys_config->CodeType,
+        failed_data, decode_block_ids, nullptr, nullptr, rows, cols, &recover);
+    if (!ok) {
+      std::cout << "[Coordinator] maintenance two-phase: get global decode plan failed!" << std::endl;
+      return false;
+    }
+
+    Stripe &t_stripe = m_stripe_table[stripe_id];
+    std::vector<int> clusters_with_blocks;
+    std::vector<std::vector<int>> decode_blocks_per_cluster;
+    for (size_t i = 0; i < decode_block_ids.size(); i++)
+    {
+      int cid = t_stripe.blocks[decode_block_ids[i]]->map2cluster;
+      auto it = std::find(clusters_with_blocks.begin(), clusters_with_blocks.end(), cid);
+      if (it == clusters_with_blocks.end())
+      {
+        clusters_with_blocks.push_back(cid);
+        decode_blocks_per_cluster.push_back(std::vector<int>(1, decode_block_ids[i]));
+      }
+      else
+      {
+        size_t idx = std::distance(clusters_with_blocks.begin(), it);
+        decode_blocks_per_cluster[idx].push_back(decode_block_ids[i]);
+      }
+    }
+
+    int dest_cluster_id = t_stripe.blocks[recover[0]]->map2cluster;
+    std::string dest_proxy_ip = m_cluster_table[dest_cluster_id].proxy_ip;
+    int dest_proxy_port = m_cluster_table[dest_cluster_id].proxy_port;
+    std::string dest_proxy_key = dest_proxy_ip + ":" + std::to_string(dest_proxy_port);
+
+    int cross_rack_num = 0;
+    int local_fill_sender_num = 0;
+    std::unordered_set<int> sibling_set(surviving_siblings.begin(), surviving_siblings.end());
+    for (size_t i = 0; i < clusters_with_blocks.size(); i++)
+    {
+      if (clusters_with_blocks[i] == dest_cluster_id)
+        continue;
+      cross_rack_num++;
+      for (int bid : decode_blocks_per_cluster[i])
+        if (sibling_set.count(bid)) { local_fill_sender_num++; break; }
+    }
+
+    // global-batch blocks that belong to the leftover's local group (reconstructed siblings).
+    const int lg = ECProject::get_block_id_to_local_group_id(
+        m_sys_config->CodeType, m_sys_config->k, m_sys_config->r, m_sys_config->z, leftover[0]);
+    std::vector<int> reconstructed_lg_members;
+    for (int bid : global_batch)
+      if (ECProject::get_block_id_to_local_group_id(m_sys_config->CodeType, m_sys_config->k,
+                                                    m_sys_config->r, m_sys_config->z, bid) == lg)
+        reconstructed_lg_members.push_back(bid);
+
+    std::vector<std::string> failed_keys(recover_num);
+    for (int f = 0; f < recover_num; f++)
+      failed_keys[f] = t_stripe.blocks[recover[f]]->block_key;
+
+    std::vector<std::thread> threads;
+    grpc::Status dest_status;
+    std::mutex dest_status_mutex;
+    threads.push_back(std::thread([this, &t_stripe, dest_proxy_key, dest_cluster_id, recover_num, &failed_data, &recover, &decode_block_ids, &failed_keys, client_ip, client_port, cross_rack_num, local_fill_sender_num, &decode_blocks_per_cluster, &clusters_with_blocks, &leftover, &local_parity_ids, &surviving_siblings, &reconstructed_lg_members, &dest_status, &dest_status_mutex]() {
+      grpc::ClientContext recovery_context;
+      proxy_proto::RecoveryRequest recovery_request;
+      proxy_proto::RecoveryReply recovery_reply;
+      recovery_request.set_cross_rack_num(cross_rack_num);
+      recovery_request.set_send_to_client(true);
+      recovery_request.set_maintenance_header(true);
+      recovery_request.set_local_fill_sender_num(local_fill_sender_num);
+      recovery_request.set_replaced_node_ip(client_ip);
+      recovery_request.set_replaced_node_port(client_port);
+      for (int bid : failed_data)
+        recovery_request.add_all_failed_block_ids(bid);
+      for (int i = 0; i < recover_num; i++)
+      {
+        recovery_request.add_failed_block_ids(recover[i]);
+        recovery_request.add_failed_block_keys(failed_keys[i]);
+      }
+      for (int bid : decode_block_ids)
+        recovery_request.add_decode_block_ids(bid);
+      for (int bid : leftover)
+        recovery_request.add_leftover_block_ids(bid);
+      for (int bid : reconstructed_lg_members)
+        recovery_request.add_reconstructed_lg_member_ids(bid);
+      for (int pid : local_parity_ids)
+      {
+        Block *pb = t_stripe.blocks[pid];
+        recovery_request.add_local_parity_block_ids(pid);
+        recovery_request.add_local_parity_datanodeip(m_node_table[pb->map2node].node_ip);
+        recovery_request.add_local_parity_datanodeport(m_node_table[pb->map2node].node_port);
+        recovery_request.add_local_parity_blockkeys(pb->block_key);
+      }
+      size_t dest_idx = 0;
+      for (; dest_idx < clusters_with_blocks.size(); dest_idx++)
+        if (clusters_with_blocks[dest_idx] == dest_cluster_id)
+          break;
+      if (dest_idx < clusters_with_blocks.size())
+        add_block_list_to_recovery_request(t_stripe, decode_blocks_per_cluster[dest_idx], &recovery_request);
+      grpc::Status st = m_proxy_ptrs[dest_proxy_key]->recovery(&recovery_context, recovery_request, &recovery_reply);
+      std::lock_guard<std::mutex> lock(dest_status_mutex);
+      dest_status = st;
+    }));
+
+    for (size_t i = 0; i < clusters_with_blocks.size(); i++)
+    {
+      if (clusters_with_blocks[i] == dest_cluster_id)
+        continue;
+      std::string proxy_key = m_cluster_table[clusters_with_blocks[i]].proxy_ip + ":" + std::to_string(m_cluster_table[clusters_with_blocks[i]].proxy_port);
+      threads.push_back(std::thread([this, &t_stripe, proxy_key, dest_proxy_ip, dest_proxy_port, recover_num, &failed_data, &recover, &decode_block_ids, &decode_blocks_per_cluster, &surviving_siblings, i]() {
+        grpc::ClientContext degraded_context;
+        proxy_proto::DegradedReadRequest degraded_request;
+        proxy_proto::DegradedReadReply degraded_reply;
+        degraded_request.set_clientip(dest_proxy_ip);
+        degraded_request.set_clientport(dest_proxy_port + ECProject::PROXY_PORT_SHIFT);
+        degraded_request.set_maintenance_header(true);
+        for (int bid : failed_data)
+          degraded_request.add_all_failed_block_ids(bid);
+        for (int j = 0; j < recover_num; j++)
+          degraded_request.add_failed_block_ids(recover[j]);
+        for (int bid : decode_block_ids)
+          degraded_request.add_decode_block_ids(bid);
+        for (int bid : surviving_siblings)
+          degraded_request.add_local_member_block_ids(bid);
+        add_block_list_to_degraded_read_request(t_stripe, decode_blocks_per_cluster[i], &degraded_request);
+        grpc::Status st = m_proxy_ptrs[proxy_key]->degradedRead(&degraded_context, degraded_request, &degraded_reply);
+        if (!st.ok())
+          std::cout << "[Coordinator] maintenance two-phase degradedRead from proxy " << proxy_key << " failed: " << st.error_message() << std::endl;
+      }));
+    }
+
+    for (size_t i = 1; i < threads.size(); i++)
+      threads[i].detach();
+    threads[0].join();
+
+    {
+      std::lock_guard<std::mutex> lock(dest_status_mutex);
+      if (!dest_status.ok()) {
+        std::cout << "[Coordinator] maintenance two-phase decode on dest failed: "
+                  << dest_status.error_message() << std::endl;
+        return false;
+      }
+    }
+    std::cout << "[Coordinator] maintenance two-phase success for stripe " << stripe_id
+              << ": global batch " << recover_num << " block(s), in-memory local fill "
+              << leftover.size() << " block(s) (cross_rack=" << cross_rack_num
+              << ", local_fill_senders=" << local_fill_sender_num << ")" << std::endl;
+    return true;
+  }
+
+  void CoordinatorImpl::maintenance_read_driver(int stripe_id,
+                                                std::vector<int> failed_data_block_ids,
+                                                std::vector<int> global_batch_block_ids,
+                                                bool fell_back,
+                                                std::string client_ip, int client_port)
+  {
+    Stripe &t_stripe = m_stripe_table[stripe_id];
+    const int k = m_sys_config->k;
+    std::unordered_set<int> failed_set(failed_data_block_ids.begin(), failed_data_block_ids.end());
+
+    // 1) Read every surviving data block directly (skip the failed rack's data blocks),
+    //    grouped by placement group, streamed to the client with their block-id prefix.
+    std::vector<int> data_block_num_per_group =
+        ECProject::get_data_block_num_per_group(k, m_sys_config->r, m_sys_config->z, m_sys_config->CodeType);
+    const int num_data_groups = static_cast<int>(data_block_num_per_group.size());
+    std::vector<std::thread> survivor_threads;
+    for (int g = 0; g < num_data_groups; g++)
+    {
+      if (g >= static_cast<int>(t_stripe.group_to_blocks.size()))
+        break;
+      std::vector<int> grp_survivors;
+      for (int bid : t_stripe.group_to_blocks[g])
+        if (bid < k && !failed_set.count(bid))
+          grp_survivors.push_back(bid);
+      if (grp_survivors.empty())
+        continue;
+      int cluster_id = t_stripe.blocks[t_stripe.group_to_blocks[g][0]]->map2cluster;
+      std::string proxy_ip = m_cluster_table[cluster_id].proxy_ip;
+      int proxy_port = m_cluster_table[cluster_id].proxy_port;
+      survivor_threads.push_back(std::thread(&CoordinatorImpl::getStripeFromProxy, this,
+                                             client_ip, client_port, proxy_ip, proxy_port,
+                                             stripe_id, g, grp_survivors));
+    }
+    for (auto &th : survivor_threads)
+      th.detach();
+
+    // 2) Reconstruct the failed rack's data blocks in memory and stream them to the client.
+    //    (No disk write-back.) Phase 1 reconstructs the cross-group global batch (N-1/N-2) in the
+    //    dest proxy's memory; phase 2 in-memory local-fills the leftover block(s), reading only the
+    //    local parity anew and reusing the surviving siblings' partials from the same round.
+    std::vector<int> leftover;
+    {
+      std::unordered_set<int> batch_set(global_batch_block_ids.begin(), global_batch_block_ids.end());
+      for (int bid : failed_data_block_ids)
+        if (!batch_set.count(bid))
+          leftover.push_back(bid);
+    }
+    std::cout << "[Coordinator] maintenance read stripe " << stripe_id << ": "
+              << failed_data_block_ids.size() << " failed data block(s); global batch "
+              << global_batch_block_ids.size() << ", local fill " << leftover.size()
+              << (fell_back ? " [FELL BACK to all-global]" : " [two-phase]") << std::endl;
+
+    bool success;
+    if (fell_back)
+      success = execute_global_degraded_read_to_client(stripe_id, failed_data_block_ids, client_ip, client_port);
+    else
+      success = execute_two_phase_degraded_read_to_client(stripe_id, failed_data_block_ids,
+                                                          global_batch_block_ids, leftover,
+                                                          client_ip, client_port);
+    if (!success)
+      std::cout << "[Coordinator] maintenance read stripe " << stripe_id << " reconstruction failed!"
+                << std::endl;
+  }
+
+  grpc::Status CoordinatorImpl::maintenanceReadStripe(
+      grpc::ServerContext *context,
+      const coordinator_proto::MaintenanceReadRequest *request,
+      coordinator_proto::RecoveryReply *replyClient)
+  {
+    const int stripe_id = request->stripe_id();
+    std::string client_ip = request->clientip();
+    int client_port = request->clientport();
+    std::vector<int> failed_data;
+    failed_data.reserve(static_cast<size_t>(request->failed_data_block_ids_size()));
+    for (int i = 0; i < request->failed_data_block_ids_size(); i++)
+      failed_data.push_back(request->failed_data_block_ids(i));
+    std::vector<int> global_batch;
+    global_batch.reserve(static_cast<size_t>(request->global_batch_block_ids_size()));
+    for (int i = 0; i < request->global_batch_block_ids_size(); i++)
+      global_batch.push_back(request->global_batch_block_ids(i));
+
+    // Decide synchronously whether the two-phase local fill is feasible, so the client can report
+    // (in the RPC reply) whether the measured run used the two-phase scheme or fell back.
+    std::vector<int> leftover;
+    {
+      std::unordered_set<int> batch_set(global_batch.begin(), global_batch.end());
+      for (int bid : failed_data)
+        if (!batch_set.count(bid))
+          leftover.push_back(bid);
+    }
+    bool fell_back = false;
+    std::string note;
+    {
+      std::vector<int> local_parity_ids, surviving_siblings;
+      if (global_batch.empty()) {
+        fell_back = true;
+        note = "no global batch (pure local recovery); using all-global path";
+      } else if (!plan_maintenance_local_fill(stripe_id, failed_data, leftover, local_parity_ids,
+                                              surviving_siblings, note)) {
+        fell_back = true;
+      }
+    }
+    replyClient->set_maintenance_fell_back(fell_back);
+    replyClient->set_maintenance_note(note);
+
+    // Dispatch the work and return immediately so the client can start accepting the streamed
+    // blocks (the proxies connect back to the client and would otherwise block on large writes).
+    std::thread driver(&CoordinatorImpl::maintenance_read_driver, this, stripe_id,
+                       failed_data, global_batch, fell_back, client_ip, client_port);
+    driver.detach();
+    return grpc::Status::OK;
+  }
+
   grpc::Status CoordinatorImpl::globalRecovery(
       grpc::ServerContext *context,
       const coordinator_proto::StripeIdAndBlockIDsFromClient *request,

@@ -51,6 +51,10 @@ service coordinatorService {
   rpc fullNodeRecovery(NodeIdFromClient) returns (RepBlockNum) {};
   rpc twoNodeRecovery(TwoNodeIdsFromClient) returns (RepBlockNum) {};
   rpc globalRecovery(StripeIdAndBlockIDsFromClient) returns (RecoveryReply) {};
+  // maintenance-robust normal read: reconstruct the failed rack's data blocks in memory
+  // (no disk write-back) using the single-rack N-1/N-2 split, then stream the full stripe's
+  // data blocks back to the client.
+  rpc maintenanceReadStripe(MaintenanceReadRequest) returns (RecoveryReply) {};
   // delete
   rpc delByKey(KeyFromClient) returns (RepIfDeling) {};
   rpc delByStripe(StripeIdFromClient) returns (RepIfDeling) {};
@@ -161,6 +165,18 @@ message StripeIdAndBlockIDsFromClient {
   repeated int32 recovery_block_ids = 3;
 }
 
+// maintenance-robust normal read of a whole stripe under single-rack failure
+message MaintenanceReadRequest {
+  int32 stripe_id = 1;
+  // all data blocks (block_id < k) located on the failed rack
+  repeated int32 failed_data_block_ids = 2;
+  // subset of failed_data_block_ids reconstructed via the cross-group global batch (N-1 / N-2);
+  // the remaining blocks are the in-memory local fill (本地补齐). For reporting/methodology only.
+  repeated int32 global_batch_block_ids = 3;
+  string clientip = 4;
+  int32 clientport = 5;
+}
+
 message NodeIdFromClient {
   int32 node_id = 1;
 }
@@ -195,4 +211,10 @@ message RecoveryReply {
   double decode_time = 3;
   double disk_write_time = 4;
   double grpc_start_time = 5;
+  // Maintenance-robust read: set when the coordinator could not run the two-phase
+  // (cross-group global batch + in-memory local fill) scheme for some leftover block and fell
+  // back to the single-round all-global degraded read (e.g. the leftover's local parity is also on
+  // the failed rack). The client prints this so measured numbers are known to be post-fallback.
+  bool maintenance_fell_back = 6;
+  string maintenance_note = 7;
 }

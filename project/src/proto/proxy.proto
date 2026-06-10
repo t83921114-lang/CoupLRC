@@ -171,6 +171,15 @@ message DegradedReadRequest{
   // If non-empty, all failed block ids for decode plan (must be a superset of failed_block_ids).
   // If empty, failed_block_ids is used as the full failure set (backward compatible).
   repeated int32 all_failed_block_ids = 12;
+  // Maintenance-robust two-phase read: surviving DATA members of the leftover's local group.
+  // A helper that holds >=1 of these blocks ALSO emits a 1-block "local fill" partial (XOR of
+  // its held members) to the dest, in addition to its global-batch partial. Used so the dest can
+  // do the in-memory local fill of the leftover block(s) without a separate read round.
+  repeated int32 local_member_block_ids = 13;
+  // When true, every partial sent to the dest is prefixed with an 8-byte header
+  // [uint32 tag (0=global batch, 1=local fill)][uint32 nblocks] so the dest can route/route-size
+  // connections that may interleave on its single acceptor.
+  bool maintenance_header = 14;
 }
 
 message PartialDecodingRequest{
@@ -225,6 +234,33 @@ message RecoveryRequest{
   // If non-empty, all failed block ids for decode plan (must be a superset of failed_block_ids).
   // If empty, failed_block_ids is used as the full failure set (backward compatible).
   repeated int32 all_failed_block_ids = 19;
+  // Maintenance-robust read: in the multi-block path, stream every reconstructed block back to
+  // the client (one connection per block, prefixed with a uint32 block id) instead of writing it
+  // back to a datanode. The client address is carried in replaced_node_ip / replaced_node_port.
+  bool send_to_client = 20;
+  // ---- Maintenance-robust two-phase read (dest side) ----
+  // When maintenance_header is true, this RecoveryRequest drives the two-phase maintenance read:
+  // (1) reconstruct the global-batch blocks (failed_block_ids, N-1/N-2) in memory from the
+  //     tag=0 cross-rack partials, then
+  // (2) in-memory local fill of the leftover block(s) using: the tag=1 local-fill partials
+  //     (XOR of surviving local-group siblings), the directly-read local parity block(s), and the
+  //     just-reconstructed global-batch members that belong to the leftover's local group.
+  // Finally stream all (global-batch + leftover) blocks to the client (block-id prefixed).
+  bool maintenance_header = 27;
+  // leftover block id(s) to produce via in-memory local fill (1 for AzureLRC/OptimalLRC/UniformLRC,
+  // 2 for LotusLRC).
+  repeated int32 leftover_block_ids = 21;
+  // local parity block id(s) of the leftover's local group; read directly by the dest (the only new
+  // read of phase 2). For LotusLRC there are 2.
+  repeated int32 local_parity_block_ids = 22;
+  repeated string local_parity_datanodeip = 23;
+  repeated int32 local_parity_datanodeport = 24;
+  repeated string local_parity_blockkeys = 25;
+  // The global-batch blocks (a subset of failed_block_ids) that belong to the leftover's local group;
+  // their reconstructed values are XORed into the local-fill combine.
+  repeated int32 reconstructed_lg_member_ids = 26;
+  // number of tag=1 local-fill partial senders the dest should accept.
+  int32 local_fill_sender_num = 28;
 }
 
 message MultipleRecoveryRequest{

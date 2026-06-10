@@ -63,6 +63,9 @@ extern KeyAndClientIPDefaultTypeInternal _KeyAndClientIP_default_instance_;
 class KeyFromClient;
 struct KeyFromClientDefaultTypeInternal;
 extern KeyFromClientDefaultTypeInternal _KeyFromClient_default_instance_;
+class MaintenanceReadRequest;
+struct MaintenanceReadRequestDefaultTypeInternal;
+extern MaintenanceReadRequestDefaultTypeInternal _MaintenanceReadRequest_default_instance_;
 class NodeIdFromClient;
 struct NodeIdFromClientDefaultTypeInternal;
 extern NodeIdFromClientDefaultTypeInternal _NodeIdFromClient_default_instance_;
@@ -122,6 +125,7 @@ template<> ::coordinator_proto::CommitAbortKey* Arena::CreateMaybeMessage<::coor
 template<> ::coordinator_proto::DegradedReadReply* Arena::CreateMaybeMessage<::coordinator_proto::DegradedReadReply>(Arena*);
 template<> ::coordinator_proto::KeyAndClientIP* Arena::CreateMaybeMessage<::coordinator_proto::KeyAndClientIP>(Arena*);
 template<> ::coordinator_proto::KeyFromClient* Arena::CreateMaybeMessage<::coordinator_proto::KeyFromClient>(Arena*);
+template<> ::coordinator_proto::MaintenanceReadRequest* Arena::CreateMaybeMessage<::coordinator_proto::MaintenanceReadRequest>(Arena*);
 template<> ::coordinator_proto::NodeIdFromClient* Arena::CreateMaybeMessage<::coordinator_proto::NodeIdFromClient>(Arena*);
 template<> ::coordinator_proto::Parameter* Arena::CreateMaybeMessage<::coordinator_proto::Parameter>(Arena*);
 template<> ::coordinator_proto::RecoveryReply* Arena::CreateMaybeMessage<::coordinator_proto::RecoveryReply>(Arena*);
@@ -2997,6 +3001,231 @@ class StripeIdAndBlockIDsFromClient final :
 };
 // -------------------------------------------------------------------
 
+class MaintenanceReadRequest final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:coordinator_proto.MaintenanceReadRequest) */ {
+ public:
+  inline MaintenanceReadRequest() : MaintenanceReadRequest(nullptr) {}
+  ~MaintenanceReadRequest() override;
+  explicit PROTOBUF_CONSTEXPR MaintenanceReadRequest(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  MaintenanceReadRequest(const MaintenanceReadRequest& from);
+  MaintenanceReadRequest(MaintenanceReadRequest&& from) noexcept
+    : MaintenanceReadRequest() {
+    *this = ::std::move(from);
+  }
+
+  inline MaintenanceReadRequest& operator=(const MaintenanceReadRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline MaintenanceReadRequest& operator=(MaintenanceReadRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const MaintenanceReadRequest& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const MaintenanceReadRequest* internal_default_instance() {
+    return reinterpret_cast<const MaintenanceReadRequest*>(
+               &_MaintenanceReadRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    16;
+
+  friend void swap(MaintenanceReadRequest& a, MaintenanceReadRequest& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(MaintenanceReadRequest* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(MaintenanceReadRequest* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  MaintenanceReadRequest* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<MaintenanceReadRequest>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const MaintenanceReadRequest& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const MaintenanceReadRequest& from) {
+    MaintenanceReadRequest::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(MaintenanceReadRequest* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "coordinator_proto.MaintenanceReadRequest";
+  }
+  protected:
+  explicit MaintenanceReadRequest(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kFailedDataBlockIdsFieldNumber = 2,
+    kGlobalBatchBlockIdsFieldNumber = 3,
+    kClientipFieldNumber = 4,
+    kStripeIdFieldNumber = 1,
+    kClientportFieldNumber = 5,
+  };
+  // repeated int32 failed_data_block_ids = 2;
+  int failed_data_block_ids_size() const;
+  private:
+  int _internal_failed_data_block_ids_size() const;
+  public:
+  void clear_failed_data_block_ids();
+  private:
+  int32_t _internal_failed_data_block_ids(int index) const;
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >&
+      _internal_failed_data_block_ids() const;
+  void _internal_add_failed_data_block_ids(int32_t value);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >*
+      _internal_mutable_failed_data_block_ids();
+  public:
+  int32_t failed_data_block_ids(int index) const;
+  void set_failed_data_block_ids(int index, int32_t value);
+  void add_failed_data_block_ids(int32_t value);
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >&
+      failed_data_block_ids() const;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >*
+      mutable_failed_data_block_ids();
+
+  // repeated int32 global_batch_block_ids = 3;
+  int global_batch_block_ids_size() const;
+  private:
+  int _internal_global_batch_block_ids_size() const;
+  public:
+  void clear_global_batch_block_ids();
+  private:
+  int32_t _internal_global_batch_block_ids(int index) const;
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >&
+      _internal_global_batch_block_ids() const;
+  void _internal_add_global_batch_block_ids(int32_t value);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >*
+      _internal_mutable_global_batch_block_ids();
+  public:
+  int32_t global_batch_block_ids(int index) const;
+  void set_global_batch_block_ids(int index, int32_t value);
+  void add_global_batch_block_ids(int32_t value);
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >&
+      global_batch_block_ids() const;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >*
+      mutable_global_batch_block_ids();
+
+  // string clientip = 4;
+  void clear_clientip();
+  const std::string& clientip() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_clientip(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_clientip();
+  PROTOBUF_NODISCARD std::string* release_clientip();
+  void set_allocated_clientip(std::string* clientip);
+  private:
+  const std::string& _internal_clientip() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_clientip(const std::string& value);
+  std::string* _internal_mutable_clientip();
+  public:
+
+  // int32 stripe_id = 1;
+  void clear_stripe_id();
+  int32_t stripe_id() const;
+  void set_stripe_id(int32_t value);
+  private:
+  int32_t _internal_stripe_id() const;
+  void _internal_set_stripe_id(int32_t value);
+  public:
+
+  // int32 clientport = 5;
+  void clear_clientport();
+  int32_t clientport() const;
+  void set_clientport(int32_t value);
+  private:
+  int32_t _internal_clientport() const;
+  void _internal_set_clientport(int32_t value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:coordinator_proto.MaintenanceReadRequest)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t > failed_data_block_ids_;
+    mutable std::atomic<int> _failed_data_block_ids_cached_byte_size_;
+    ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t > global_batch_block_ids_;
+    mutable std::atomic<int> _global_batch_block_ids_cached_byte_size_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr clientip_;
+    int32_t stripe_id_;
+    int32_t clientport_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_coordinator_2eproto;
+};
+// -------------------------------------------------------------------
+
 class NodeIdFromClient final :
     public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:coordinator_proto.NodeIdFromClient) */ {
  public:
@@ -3045,7 +3274,7 @@ class NodeIdFromClient final :
                &_NodeIdFromClient_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    16;
+    17;
 
   friend void swap(NodeIdFromClient& a, NodeIdFromClient& b) {
     a.Swap(&b);
@@ -3193,7 +3422,7 @@ class TwoNodeIdsFromClient final :
                &_TwoNodeIdsFromClient_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    17;
+    18;
 
   friend void swap(TwoNodeIdsFromClient& a, TwoNodeIdsFromClient& b) {
     a.Swap(&b);
@@ -3352,7 +3581,7 @@ class RepIfDeling final :
                &_RepIfDeling_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    18;
+    19;
 
   friend void swap(RepIfDeling& a, RepIfDeling& b) {
     a.Swap(&b);
@@ -3500,7 +3729,7 @@ class RepStripeIds final :
                &_RepStripeIds_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    19;
+    20;
 
   friend void swap(RepStripeIds& a, RepStripeIds& b) {
     a.Swap(&b);
@@ -3662,7 +3891,7 @@ class RepBlockNum final :
                &_RepBlockNum_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    20;
+    21;
 
   friend void swap(RepBlockNum& a, RepBlockNum& b) {
     a.Swap(&b);
@@ -3810,7 +4039,7 @@ class DegradedReadReply final :
                &_DegradedReadReply_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    21;
+    22;
 
   friend void swap(DegradedReadReply& a, DegradedReadReply& b) {
     a.Swap(&b);
@@ -3991,7 +4220,7 @@ class RecoveryReply final :
                &_RecoveryReply_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    22;
+    23;
 
   friend void swap(RecoveryReply& a, RecoveryReply& b) {
     a.Swap(&b);
@@ -4064,12 +4293,28 @@ class RecoveryReply final :
   // accessors -------------------------------------------------------
 
   enum : int {
+    kMaintenanceNoteFieldNumber = 7,
     kDiskReadTimeFieldNumber = 1,
     kNetworkTimeFieldNumber = 2,
     kDecodeTimeFieldNumber = 3,
     kDiskWriteTimeFieldNumber = 4,
     kGrpcStartTimeFieldNumber = 5,
+    kMaintenanceFellBackFieldNumber = 6,
   };
+  // string maintenance_note = 7;
+  void clear_maintenance_note();
+  const std::string& maintenance_note() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_maintenance_note(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_maintenance_note();
+  PROTOBUF_NODISCARD std::string* release_maintenance_note();
+  void set_allocated_maintenance_note(std::string* maintenance_note);
+  private:
+  const std::string& _internal_maintenance_note() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_maintenance_note(const std::string& value);
+  std::string* _internal_mutable_maintenance_note();
+  public:
+
   // double disk_read_time = 1;
   void clear_disk_read_time();
   double disk_read_time() const;
@@ -4115,6 +4360,15 @@ class RecoveryReply final :
   void _internal_set_grpc_start_time(double value);
   public:
 
+  // bool maintenance_fell_back = 6;
+  void clear_maintenance_fell_back();
+  bool maintenance_fell_back() const;
+  void set_maintenance_fell_back(bool value);
+  private:
+  bool _internal_maintenance_fell_back() const;
+  void _internal_set_maintenance_fell_back(bool value);
+  public:
+
   // @@protoc_insertion_point(class_scope:coordinator_proto.RecoveryReply)
  private:
   class _Internal;
@@ -4123,11 +4377,13 @@ class RecoveryReply final :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr maintenance_note_;
     double disk_read_time_;
     double network_time_;
     double decode_time_;
     double disk_write_time_;
     double grpc_start_time_;
+    bool maintenance_fell_back_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -5701,6 +5957,194 @@ StripeIdAndBlockIDsFromClient::mutable_recovery_block_ids() {
 
 // -------------------------------------------------------------------
 
+// MaintenanceReadRequest
+
+// int32 stripe_id = 1;
+inline void MaintenanceReadRequest::clear_stripe_id() {
+  _impl_.stripe_id_ = 0;
+}
+inline int32_t MaintenanceReadRequest::_internal_stripe_id() const {
+  return _impl_.stripe_id_;
+}
+inline int32_t MaintenanceReadRequest::stripe_id() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.MaintenanceReadRequest.stripe_id)
+  return _internal_stripe_id();
+}
+inline void MaintenanceReadRequest::_internal_set_stripe_id(int32_t value) {
+  
+  _impl_.stripe_id_ = value;
+}
+inline void MaintenanceReadRequest::set_stripe_id(int32_t value) {
+  _internal_set_stripe_id(value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.MaintenanceReadRequest.stripe_id)
+}
+
+// repeated int32 failed_data_block_ids = 2;
+inline int MaintenanceReadRequest::_internal_failed_data_block_ids_size() const {
+  return _impl_.failed_data_block_ids_.size();
+}
+inline int MaintenanceReadRequest::failed_data_block_ids_size() const {
+  return _internal_failed_data_block_ids_size();
+}
+inline void MaintenanceReadRequest::clear_failed_data_block_ids() {
+  _impl_.failed_data_block_ids_.Clear();
+}
+inline int32_t MaintenanceReadRequest::_internal_failed_data_block_ids(int index) const {
+  return _impl_.failed_data_block_ids_.Get(index);
+}
+inline int32_t MaintenanceReadRequest::failed_data_block_ids(int index) const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.MaintenanceReadRequest.failed_data_block_ids)
+  return _internal_failed_data_block_ids(index);
+}
+inline void MaintenanceReadRequest::set_failed_data_block_ids(int index, int32_t value) {
+  _impl_.failed_data_block_ids_.Set(index, value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.MaintenanceReadRequest.failed_data_block_ids)
+}
+inline void MaintenanceReadRequest::_internal_add_failed_data_block_ids(int32_t value) {
+  _impl_.failed_data_block_ids_.Add(value);
+}
+inline void MaintenanceReadRequest::add_failed_data_block_ids(int32_t value) {
+  _internal_add_failed_data_block_ids(value);
+  // @@protoc_insertion_point(field_add:coordinator_proto.MaintenanceReadRequest.failed_data_block_ids)
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >&
+MaintenanceReadRequest::_internal_failed_data_block_ids() const {
+  return _impl_.failed_data_block_ids_;
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >&
+MaintenanceReadRequest::failed_data_block_ids() const {
+  // @@protoc_insertion_point(field_list:coordinator_proto.MaintenanceReadRequest.failed_data_block_ids)
+  return _internal_failed_data_block_ids();
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >*
+MaintenanceReadRequest::_internal_mutable_failed_data_block_ids() {
+  return &_impl_.failed_data_block_ids_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >*
+MaintenanceReadRequest::mutable_failed_data_block_ids() {
+  // @@protoc_insertion_point(field_mutable_list:coordinator_proto.MaintenanceReadRequest.failed_data_block_ids)
+  return _internal_mutable_failed_data_block_ids();
+}
+
+// repeated int32 global_batch_block_ids = 3;
+inline int MaintenanceReadRequest::_internal_global_batch_block_ids_size() const {
+  return _impl_.global_batch_block_ids_.size();
+}
+inline int MaintenanceReadRequest::global_batch_block_ids_size() const {
+  return _internal_global_batch_block_ids_size();
+}
+inline void MaintenanceReadRequest::clear_global_batch_block_ids() {
+  _impl_.global_batch_block_ids_.Clear();
+}
+inline int32_t MaintenanceReadRequest::_internal_global_batch_block_ids(int index) const {
+  return _impl_.global_batch_block_ids_.Get(index);
+}
+inline int32_t MaintenanceReadRequest::global_batch_block_ids(int index) const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.MaintenanceReadRequest.global_batch_block_ids)
+  return _internal_global_batch_block_ids(index);
+}
+inline void MaintenanceReadRequest::set_global_batch_block_ids(int index, int32_t value) {
+  _impl_.global_batch_block_ids_.Set(index, value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.MaintenanceReadRequest.global_batch_block_ids)
+}
+inline void MaintenanceReadRequest::_internal_add_global_batch_block_ids(int32_t value) {
+  _impl_.global_batch_block_ids_.Add(value);
+}
+inline void MaintenanceReadRequest::add_global_batch_block_ids(int32_t value) {
+  _internal_add_global_batch_block_ids(value);
+  // @@protoc_insertion_point(field_add:coordinator_proto.MaintenanceReadRequest.global_batch_block_ids)
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >&
+MaintenanceReadRequest::_internal_global_batch_block_ids() const {
+  return _impl_.global_batch_block_ids_;
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >&
+MaintenanceReadRequest::global_batch_block_ids() const {
+  // @@protoc_insertion_point(field_list:coordinator_proto.MaintenanceReadRequest.global_batch_block_ids)
+  return _internal_global_batch_block_ids();
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >*
+MaintenanceReadRequest::_internal_mutable_global_batch_block_ids() {
+  return &_impl_.global_batch_block_ids_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedField< int32_t >*
+MaintenanceReadRequest::mutable_global_batch_block_ids() {
+  // @@protoc_insertion_point(field_mutable_list:coordinator_proto.MaintenanceReadRequest.global_batch_block_ids)
+  return _internal_mutable_global_batch_block_ids();
+}
+
+// string clientip = 4;
+inline void MaintenanceReadRequest::clear_clientip() {
+  _impl_.clientip_.ClearToEmpty();
+}
+inline const std::string& MaintenanceReadRequest::clientip() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.MaintenanceReadRequest.clientip)
+  return _internal_clientip();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void MaintenanceReadRequest::set_clientip(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.clientip_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:coordinator_proto.MaintenanceReadRequest.clientip)
+}
+inline std::string* MaintenanceReadRequest::mutable_clientip() {
+  std::string* _s = _internal_mutable_clientip();
+  // @@protoc_insertion_point(field_mutable:coordinator_proto.MaintenanceReadRequest.clientip)
+  return _s;
+}
+inline const std::string& MaintenanceReadRequest::_internal_clientip() const {
+  return _impl_.clientip_.Get();
+}
+inline void MaintenanceReadRequest::_internal_set_clientip(const std::string& value) {
+  
+  _impl_.clientip_.Set(value, GetArenaForAllocation());
+}
+inline std::string* MaintenanceReadRequest::_internal_mutable_clientip() {
+  
+  return _impl_.clientip_.Mutable(GetArenaForAllocation());
+}
+inline std::string* MaintenanceReadRequest::release_clientip() {
+  // @@protoc_insertion_point(field_release:coordinator_proto.MaintenanceReadRequest.clientip)
+  return _impl_.clientip_.Release();
+}
+inline void MaintenanceReadRequest::set_allocated_clientip(std::string* clientip) {
+  if (clientip != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.clientip_.SetAllocated(clientip, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.clientip_.IsDefault()) {
+    _impl_.clientip_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:coordinator_proto.MaintenanceReadRequest.clientip)
+}
+
+// int32 clientport = 5;
+inline void MaintenanceReadRequest::clear_clientport() {
+  _impl_.clientport_ = 0;
+}
+inline int32_t MaintenanceReadRequest::_internal_clientport() const {
+  return _impl_.clientport_;
+}
+inline int32_t MaintenanceReadRequest::clientport() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.MaintenanceReadRequest.clientport)
+  return _internal_clientport();
+}
+inline void MaintenanceReadRequest::_internal_set_clientport(int32_t value) {
+  
+  _impl_.clientport_ = value;
+}
+inline void MaintenanceReadRequest::set_clientport(int32_t value) {
+  _internal_set_clientport(value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.MaintenanceReadRequest.clientport)
+}
+
+// -------------------------------------------------------------------
+
 // NodeIdFromClient
 
 // int32 node_id = 1;
@@ -6054,9 +6498,81 @@ inline void RecoveryReply::set_grpc_start_time(double value) {
   // @@protoc_insertion_point(field_set:coordinator_proto.RecoveryReply.grpc_start_time)
 }
 
+// bool maintenance_fell_back = 6;
+inline void RecoveryReply::clear_maintenance_fell_back() {
+  _impl_.maintenance_fell_back_ = false;
+}
+inline bool RecoveryReply::_internal_maintenance_fell_back() const {
+  return _impl_.maintenance_fell_back_;
+}
+inline bool RecoveryReply::maintenance_fell_back() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.RecoveryReply.maintenance_fell_back)
+  return _internal_maintenance_fell_back();
+}
+inline void RecoveryReply::_internal_set_maintenance_fell_back(bool value) {
+  
+  _impl_.maintenance_fell_back_ = value;
+}
+inline void RecoveryReply::set_maintenance_fell_back(bool value) {
+  _internal_set_maintenance_fell_back(value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.RecoveryReply.maintenance_fell_back)
+}
+
+// string maintenance_note = 7;
+inline void RecoveryReply::clear_maintenance_note() {
+  _impl_.maintenance_note_.ClearToEmpty();
+}
+inline const std::string& RecoveryReply::maintenance_note() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.RecoveryReply.maintenance_note)
+  return _internal_maintenance_note();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void RecoveryReply::set_maintenance_note(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.maintenance_note_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:coordinator_proto.RecoveryReply.maintenance_note)
+}
+inline std::string* RecoveryReply::mutable_maintenance_note() {
+  std::string* _s = _internal_mutable_maintenance_note();
+  // @@protoc_insertion_point(field_mutable:coordinator_proto.RecoveryReply.maintenance_note)
+  return _s;
+}
+inline const std::string& RecoveryReply::_internal_maintenance_note() const {
+  return _impl_.maintenance_note_.Get();
+}
+inline void RecoveryReply::_internal_set_maintenance_note(const std::string& value) {
+  
+  _impl_.maintenance_note_.Set(value, GetArenaForAllocation());
+}
+inline std::string* RecoveryReply::_internal_mutable_maintenance_note() {
+  
+  return _impl_.maintenance_note_.Mutable(GetArenaForAllocation());
+}
+inline std::string* RecoveryReply::release_maintenance_note() {
+  // @@protoc_insertion_point(field_release:coordinator_proto.RecoveryReply.maintenance_note)
+  return _impl_.maintenance_note_.Release();
+}
+inline void RecoveryReply::set_allocated_maintenance_note(std::string* maintenance_note) {
+  if (maintenance_note != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.maintenance_note_.SetAllocated(maintenance_note, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.maintenance_note_.IsDefault()) {
+    _impl_.maintenance_note_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:coordinator_proto.RecoveryReply.maintenance_note)
+}
+
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

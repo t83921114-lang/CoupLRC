@@ -83,6 +83,15 @@ namespace ECProject
     bool set(std::string key, std::string value);
     bool SetParameterByGrpc(ECSchema input_ecschema);
     std::shared_ptr<char[]> get(std::string key, size_t &data_size);
+    // Maintenance-robust normal read: under single-rack failure, reconstruct the failed rack's
+    // data blocks in memory (no disk write-back) using the single-rack N-1/N-2 split, then read
+    // the whole stripe's k data blocks. failed_data_block_ids: data blocks (id < k) on the failed
+    // rack; global_batch_block_ids: subset reconstructed via the global batch (the rest = local
+    // fill). Returns the k data blocks (k * BlockSize) assembled in block-id order.
+    std::shared_ptr<char[]> maintenance_read(int stripe_id,
+                                             const std::vector<int> &failed_data_block_ids,
+                                             const std::vector<int> &global_batch_block_ids,
+                                             size_t &data_size);
     std::shared_ptr<char[]> get_blocks(int start_block_id, int end_block_id);
     std::shared_ptr<char[]> get_degraded_read_blocks(int start_block_id, int end_block_id);
     bool get(std::string key, std::string &value);
