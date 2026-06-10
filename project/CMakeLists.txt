@@ -184,6 +184,7 @@ add_executable(recovery_plan_test
 add_executable(lotus_2block_verify
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/lotus_2block_verify.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder_layout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/recovery_strategy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder.cpp
     ${ASM_SOURCES}
 )
@@ -235,6 +236,8 @@ add_executable(encode_benchmark
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/encode_benchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tinyxml2.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder_layout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/recovery_strategy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder.cpp
     ${ASM_SOURCES}
 )

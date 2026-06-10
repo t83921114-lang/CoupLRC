@@ -2,6 +2,7 @@
 #include "encoder.h"
 #include <iostream>
 #include <unordered_map>
+#include <stdexcept>
 
 extern "C" {
     void gf_vect_dot_prod_avx2(int len, int vec, unsigned char *g_tbls, unsigned char **buffs, unsigned char*dests);
@@ -493,6 +494,15 @@ void ECProject::decode_unilrc(const int k, const int r, const int z, const int b
     xor_gen_avx(block_num + 1, block_size, (void **)vect_ptrs);
 }
 
+namespace ECProject {
+namespace {
+// Defined below; exact generator-matrix single-block decode shared by Optimal/Lotus/Azure-global.
+void decode_block_via_generator(const std::string &code, int k, int r, int z, int block_num,
+                                const std::vector<int> *block_indexes, unsigned char **block_ptrs,
+                                unsigned char *res_ptr, int block_size, int failed_block_id);
+} // namespace
+} // namespace ECProject
+
 void ECProject::decode_azure_lrc(const int k, const int r, const int z, const int block_num,
                                  const std::vector<int> *block_indexes, unsigned char **block_ptrs, unsigned char *res_ptr, int block_size,
                                  int failed_block_id)
@@ -511,90 +521,79 @@ void ECProject::decode_azure_lrc(const int k, const int r, const int z, const in
     }
     else
     {
-        int m = k + r;
-        unsigned char *encode_matrix = new unsigned char[m * k];
-        memset(encode_matrix, 0,  m * k);
-        gf_gen_rs_matrix1(encode_matrix, m, k);
-        unsigned char *decode_matrix = new unsigned char[k * k];
-        memset(decode_matrix, 0, k * k);
-        unsigned char *temp_matrix = new unsigned char[k * k];
-        memset(temp_matrix, 0, k * k);
-        int used_row[k];
-        std::unordered_map<int, int> idx_to_row;
-        for(int i = 0, j = 0; j < k && i < k + r; i++){
-            if(i != failed_block_id){
-                used_row[j] = i;
-                idx_to_row[i] = j;
-                j++;
-            }
-        }
-        for(int i = 0; i < k; i++){
-            for(int j = 0; j < k; j++){
-                temp_matrix[i * k + j] = encode_matrix[used_row[i] * k + j];
-            }
-        }
-        unsigned char *invert_matrix = new unsigned char[k * k];
-        gf_invert_matrix(temp_matrix, invert_matrix, k);
-        unsigned char * vect_all = new unsigned char[k];
-        gf_mul_vect_matrix(encode_matrix + failed_block_id * k, invert_matrix, vect_all, k);
-        unsigned char *decode_vector = new unsigned char[block_num];
-        for(int i = 0; i < block_num; i++){
-            decode_vector[i] = vect_all[idx_to_row[block_indexes->at(i)]];
-        }
-        unsigned char *g_tbls = new unsigned char[block_num * 32];
-        ec_init_tables(block_num, 1, decode_vector, g_tbls);
-        unsigned char **res_ptr_ptr = new unsigned char *[1];
-        res_ptr_ptr[0] = res_ptr;
-        ec_encode_data_avx2(block_size, block_num, 1, g_tbls, block_ptrs, res_ptr_ptr);
-        delete[] encode_matrix;
-        delete[] decode_matrix;
-        delete[] temp_matrix;
-        delete[] invert_matrix;
-        delete[] vect_all;
-        delete[] decode_vector;
-        delete[] g_tbls;
-        delete[] res_ptr_ptr;
+        // Global-parity recovery: the previous RS-inverse path used a generator matrix that did
+        // not match gen_azure_lrc_matrix (and mis-mapped sources), producing wrong data. Use the
+        // exact generator-matrix solve instead.
+        decode_block_via_generator("AzureLRC", k, r, z, block_num, block_indexes, block_ptrs,
+                                   res_ptr, block_size, failed_block_id);
     }
 }
+
+namespace ECProject {
+namespace {
+
+// Exact, code-type-agnostic single-block decode coefficients for the per-group XOR partial scheme.
+//
+// Single-block recovery is run as: each cross-rack group computes a weighted partial over ONLY the
+// source blocks it holds, and the destination XORs the partials. For that decomposition to be
+// correct, every source block's coefficient must be grouping-independent. We obtain those exact
+// coefficients by solving, over the FULL deterministic recovery source set
+// (= flatten(get_recovery_group_and_block_ids(failed))), the system
+//   gen[failed] = sum_s  C_s * gen[s]   over GF(2^8)
+// via get_local_fill_plan (generator-matrix based; validated for every code type). Each decode_*
+// call then applies the C_s of exactly the blocks it was given.
+//
+// This is correct for data blocks, local-parity blocks, global-parity blocks and folded-global
+// members alike -- no out-of-bounds local_vector indexing and no per-code coefficient special
+// casing (the previous root cause of wrong recovered data for Optimal/Lotus and Azure globals).
+void decode_block_via_generator(const std::string &code, int k, int r, int z, int block_num,
+                                const std::vector<int> *block_indexes, unsigned char **block_ptrs,
+                                unsigned char *res_ptr, int block_size, int failed_block_id)
+{
+    memset(res_ptr, 0, block_size);
+    if (block_num == 0)
+        return;
+    std::vector<int> flat;
+    try {
+        auto plan = get_recovery_group_and_block_ids(code, k, r, z, failed_block_id);
+        for (auto &p : plan)
+            for (int b : p.second)
+                flat.push_back(b);
+    } catch (const std::exception &e) {
+        std::cerr << "[decode] " << code << " plan error for block " << failed_block_id
+                  << ": " << e.what() << std::endl;
+        return;
+    }
+    std::vector<unsigned char> coeffs;
+    if (flat.empty() || !get_local_fill_plan(k, r, z, code, {failed_block_id}, flat, coeffs)) {
+        std::cerr << "[decode] " << code << " cannot derive exact coefficients for block "
+                  << failed_block_id << std::endl;
+        return;
+    }
+    std::unordered_map<int, int> pos;
+    for (int i = 0; i < static_cast<int>(flat.size()); i++)
+        pos[flat[i]] = i;
+    std::vector<unsigned char> decode_vector(static_cast<size_t>(block_num), 0);
+    for (int i = 0; i < block_num; i++) {
+        auto it = pos.find(block_indexes->at(i));
+        if (it != pos.end())
+            decode_vector[i] = coeffs[it->second];
+    }
+    unsigned char *g_tbls = new unsigned char[static_cast<size_t>(block_num) * 32];
+    ec_init_tables(block_num, 1, decode_vector.data(), g_tbls);
+    unsigned char *res_ptr_ptr[1] = {res_ptr};
+    ec_encode_data_avx2(block_size, block_num, 1, g_tbls, block_ptrs, res_ptr_ptr);
+    delete[] g_tbls;
+}
+
+} // namespace
+} // namespace ECProject
 
 void ECProject::decode_optimal_lrc(const int k, const int r, const int z, const int block_num,
                                    const std::vector<int> *block_indexes, unsigned char **block_ptrs, unsigned char *res_ptr, int block_size, int failed_block_id)
 {
-    if(block_num == 0){
-        return;
-    }
-    memset(res_ptr, 0, block_size);
-    unsigned char *local_vector;
-    local_vector = new unsigned char[k];
-    gf_gen_local_vector(local_vector, k, r);
-    unsigned char *decode_vector = new unsigned char[block_num];
-    if(block_indexes->at(0) >= k){
-        for(int i = 0; i < block_num; i++){
-            decode_vector[i] = 1;
-        }
-    }
-    else{
-        for(int i = 0; i < block_num; i++){
-            decode_vector[i] = local_vector[block_indexes->at(i)];
-        }
-    }
-    if(failed_block_id < k){
-        unsigned char factor = gf_inv(local_vector[failed_block_id]);
-        for(int i = 0; i < block_num; i++){
-            decode_vector[i] = gf_mul(decode_vector[i], factor);
-        }
-    }
-
-    unsigned char *g_tbls = new unsigned char[block_num * 32];
-    unsigned char **res_ptr_ptr = new unsigned char *[1];
-    res_ptr_ptr[0] = res_ptr;
-    ec_init_tables(block_num, 1, decode_vector, g_tbls);
-    ec_encode_data_avx2(block_size, block_num, 1, g_tbls, block_ptrs, res_ptr_ptr);
-    
-    delete[] local_vector;
-    delete[] decode_vector;
-    delete[] g_tbls;
-    delete[] res_ptr_ptr;
+    decode_block_via_generator("OptimalLRC", k, r, z, block_num, block_indexes, block_ptrs,
+                               res_ptr, block_size, failed_block_id);
 }
 void ECProject::decode_uniform_lrc(const int k, const int r, const int z, const int block_num,
                                    const std::vector<int> *block_indexes, unsigned char **block_ptrs, unsigned char *res_ptr, int block_size, int failed_block_id)
@@ -639,43 +638,8 @@ void ECProject::decode_lotus_lrc(const int k, const int r, const int z, const in
                                  const std::vector<int> *block_indexes, unsigned char **block_ptrs, unsigned char *res_ptr, int block_size,
                                  int failed_block_id)
 {
-    if(block_num == 0){
-        return;
-    }
-    memset(res_ptr, 0, block_size);
-    unsigned char *decode_vector = new unsigned char[block_num];
-    if(failed_block_id < k + r + z / 2){
-        unsigned char *local_vector = new unsigned char[k];
-        gf_gen_local_vector(local_vector, k, r);
-        unsigned char factor = 1;
-        if(failed_block_id < k){
-            factor = gf_inv(local_vector[failed_block_id]);
-        }
-        for(int i = 0; i < block_num; i++){
-            decode_vector[i] = gf_mul(local_vector[block_indexes->at(i)], factor);
-        }
-        delete[] local_vector;
-    }
-    else{
-        unsigned char *local_vector = new unsigned char[k];
-        gf_gen_local_vector(local_vector, k, r + 1);  // for the second half of the local parity
-        unsigned char factor = 1;
-        if(failed_block_id < k){
-            factor = gf_inv(local_vector[failed_block_id]);
-        }
-        for(int i = 0; i < block_num; i++){
-            decode_vector[i] = gf_mul(local_vector[block_indexes->at(i)], factor);
-        }
-        delete[] local_vector;
-    }
-    unsigned char *g_tbls = new unsigned char[block_num * 32];
-    unsigned char **res_ptr_ptr = new unsigned char *[1];
-    res_ptr_ptr[0] = res_ptr;
-    ec_init_tables(block_num, 1, decode_vector, g_tbls);
-    ec_encode_data_avx2(block_size, block_num, 1, g_tbls, block_ptrs, res_ptr_ptr);
-    delete[] decode_vector;
-    delete[] g_tbls;
-    delete[] res_ptr_ptr;
+    decode_block_via_generator("LotusLRC", k, r, z, block_num, block_indexes, block_ptrs,
+                               res_ptr, block_size, failed_block_id);
 }
 
 void
