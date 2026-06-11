@@ -280,53 +280,6 @@ bool get_global_decode_plan(int k, int r, int z, const std::string &code_type,
         return false;
     }
 
-    // Fast-path (experimental): when the failed-block count matches a specific pattern,
-    // use "all remaining non-failed blocks" as decode sources, and fill placeholder
-    // coefficients as 1 to keep proxy's table initialization/encoding well-formed.
-    {
-        const int F = static_cast<int>(failed_block_indexes.size());
-        const int nrows = k + r + z;
-        bool use_fast_path = false;
-        if (code_type == "LotusLRC") {
-            use_fast_path = (F == r + 2);
-        } else {
-            use_fast_path = (F == r + 1);
-        }
-
-        if (use_fast_path) {
-            // Build failed set for membership tests.
-            std::unordered_map<int, bool> failed_map;
-            for (int idx : failed_block_indexes) failed_map[idx] = true;
-
-            // For coordinator: decode_block_ids should be all non-failed blocks in [0, nrows).
-            global_decode_block_indexes.clear();
-            global_decode_block_indexes.reserve(static_cast<size_t>(nrows - F));
-            for (int i = 0; i < nrows; i++) {
-                if (!failed_map.count(i)) global_decode_block_indexes.push_back(i);
-            }
-
-            rows = R;
-            cols = 0;
-
-            // For proxy: fill local_matrix (rows x cols) with placeholder coefficients.
-            if (local_source_block_ids != nullptr && local_matrix != nullptr) {
-                cols = static_cast<int>(local_source_block_ids->size());
-                for (int rr = 0; rr < R; ++rr) {
-                    for (int j = 0; j < cols; ++j) {
-                        const int local_bid = (*local_source_block_ids)[j];
-                        unsigned char val = 0;
-                        if (local_bid >= 0 && local_bid < nrows && !failed_map.count(local_bid)) {
-                            val = 1;
-                        }
-                        local_matrix[rr * cols + j] = val;
-                    }
-                }
-            }
-
-            return true;
-        }
-    }
-
     // LotusLRC: true two-block same-local-group local recovery (one round).
     // Reads only this local group's surviving blocks and produces a 2-row coefficient
     // matrix, so the existing multi-block transport returns 2 x BlockSize per helper.
