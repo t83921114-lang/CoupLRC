@@ -305,7 +305,7 @@ int main(int argc, char **argv)
     //client.multi_block_recovery(0, {0, 1});
     //sleep(5);
 
-
+/*
     // for one block recovery
     {
         const double recovered_mb = block_size;
@@ -327,6 +327,7 @@ int main(int argc, char **argv)
         std::cout << "One block recovery test end" << std::endl;
         std::cout << std::endl;
     }
+*/
 /*
     // for two block recovery (test blocks 0 and 1)
     {
@@ -351,80 +352,80 @@ int main(int argc, char **argv)
     }
 */
     // Multi block recovery: first cluster (rack) fails under current layout + placement
-    // {
-    //     const int test_stripe_id = 0;
-    //     const int failed_cluster_id = 0;
-    //     std::vector<int> first_rack_failed;
-    //     try
-    //     {
-    //         first_rack_failed = blocks_on_cluster(
-    //             code_type, k, r, z, n, test_stripe_id, failed_cluster_id, config->ClusterNum);
-    //     }
-    //     catch (const std::exception &e)
-    //     {
-    //         std::cout << "Layout lookup failed: " << e.what() << std::endl;
-    //         return -1;
-    //     }
-    //     if (first_rack_failed.empty())
-    //     {
-    //         std::cout << "No blocks on cluster " << failed_cluster_id
-    //                   << " for stripe " << test_stripe_id << ", skip one-rack test" << std::endl;
-    //     }
-    //     else
-    //     {
-    //     std::vector<int> multi_recover_ids = multi_recovery_batch(code_type, r, first_rack_failed);
-    //     // Leftover blocks (not in the global batch) are recovered by local-group repair.
-    //     std::vector<int> local_recover_ids;
-    //     for (int bid : first_rack_failed)
-    //     {
-    //         if (std::find(multi_recover_ids.begin(), multi_recover_ids.end(), bid) ==
-    //             multi_recover_ids.end())
-    //             local_recover_ids.push_back(bid);
-    //     }
-    //     // Lotus offloads 2 same-local-group blocks to a single-round 2-parity local
-    //     // recovery; the others offload 1 block per single-block local recovery.
-    //     const bool lotus_two_block_local =
-    //         (code_type == "LotusLRC" && local_recover_ids.size() == 2);
+    {
+        const int test_stripe_id = 0;
+        const int failed_cluster_id = 0;
+        std::vector<int> first_rack_failed;
+        try
+        {
+            first_rack_failed = blocks_on_cluster(
+                code_type, k, r, z, n, test_stripe_id, failed_cluster_id, config->ClusterNum);
+        }
+        catch (const std::exception &e)
+        {
+            std::cout << "Layout lookup failed: " << e.what() << std::endl;
+            return -1;
+        }
+        if (first_rack_failed.empty())
+        {
+            std::cout << "No blocks on cluster " << failed_cluster_id
+                      << " for stripe " << test_stripe_id << ", skip one-rack test" << std::endl;
+        }
+        else
+        {
+        std::vector<int> multi_recover_ids = multi_recovery_batch(code_type, r, first_rack_failed);
+        // Leftover blocks (not in the global batch) are recovered by local-group repair.
+        std::vector<int> local_recover_ids;
+        for (int bid : first_rack_failed)
+        {
+            if (std::find(multi_recover_ids.begin(), multi_recover_ids.end(), bid) ==
+                multi_recover_ids.end())
+                local_recover_ids.push_back(bid);
+        }
+        // Lotus offloads 2 same-local-group blocks to a single-round 2-parity local
+        // recovery; the others offload 1 block per single-block local recovery.
+        const bool lotus_two_block_local =
+            (code_type == "LotusLRC" && local_recover_ids.size() == 2);
 
-    //     std::cout << "Multi block recovery test start (one rack, cluster "
-    //               << failed_cluster_id << ", stripe " << test_stripe_id << ")" << std::endl;
-    //     print_block_ids("  Failed blocks on rack (layout+placement):", first_rack_failed);
-    //     print_block_ids("  Blocks via globalRecovery batch:", multi_recover_ids);
-    //     if (lotus_two_block_local)
-    //         print_block_ids("  Blocks via Lotus same-group 2-parity local recovery:", local_recover_ids);
-    //     else
-    //         print_block_ids("  Blocks via recovery() one-by-one (single-block local):", local_recover_ids);
+        std::cout << "Multi block recovery test start (one rack, cluster "
+                  << failed_cluster_id << ", stripe " << test_stripe_id << ")" << std::endl;
+        print_block_ids("  Failed blocks on rack (layout+placement):", first_rack_failed);
+        print_block_ids("  Blocks via globalRecovery batch:", multi_recover_ids);
+        if (lotus_two_block_local)
+            print_block_ids("  Blocks via Lotus same-group 2-parity local recovery:", local_recover_ids);
+        else
+            print_block_ids("  Blocks via recovery() one-by-one (single-block local):", local_recover_ids);
 
-    //     const double recovered_mb =
-    //         static_cast<double>(first_rack_failed.size()) * block_size;
+        const double recovered_mb =
+            static_cast<double>(first_rack_failed.size()) * block_size;
 
-    //     std::vector<std::chrono::duration<double>> multi_block_recovery_one_rack_time_spans;
-    //     for (int i = 0; i < 10; i++)
-    //     {
-    //         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    //         // Step 1: global batch recovers the bulk (N-2 for Lotus, N-1 for others).
-    //         if (!multi_recover_ids.empty())
-    //             client.multi_block_recovery(test_stripe_id, first_rack_failed, multi_recover_ids);
-    //         // Step 2: local-group recovery of the leftover block(s).
-    //         if (lotus_two_block_local)
-    //             client.multi_block_recovery(test_stripe_id, local_recover_ids, {});
-    //         else
-    //             for (int bid : local_recover_ids)
-    //                 client.recovery(test_stripe_id, bid);
-    //         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    //         std::chrono::duration<double> time_span =
-    //             std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    //         multi_block_recovery_one_rack_time_spans.push_back(time_span);
-    //         if (time_span.count() > 0)
-    //             std::cout << "[" << i << "th] One rack recovery throughput: "
-    //                       << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
-    //     }
-    //     print_throughput_summary("One rack recovery", multi_block_recovery_one_rack_time_spans,
-    //                              recovered_mb);
-    //     std::cout << "One rack recovery test end" << std::endl;
-    //     std::cout << std::endl;
-    //     }
-    // }
+        std::vector<std::chrono::duration<double>> multi_block_recovery_one_rack_time_spans;
+        for (int i = 0; i < 10; i++)
+        {
+            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+            // Step 1: global batch recovers the bulk (N-2 for Lotus, N-1 for others).
+            if (!multi_recover_ids.empty())
+                client.multi_block_recovery(test_stripe_id, first_rack_failed, multi_recover_ids);
+            // Step 2: local-group recovery of the leftover block(s).
+            if (lotus_two_block_local)
+                client.multi_block_recovery(test_stripe_id, local_recover_ids, {});
+            else
+                for (int bid : local_recover_ids)
+                    client.recovery(test_stripe_id, bid);
+            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> time_span =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            multi_block_recovery_one_rack_time_spans.push_back(time_span);
+            if (time_span.count() > 0)
+                std::cout << "[" << i << "th] One rack recovery throughput: "
+                          << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
+        }
+        print_throughput_summary("One rack recovery", multi_block_recovery_one_rack_time_spans,
+                                 recovered_mb);
+        std::cout << "One rack recovery test end" << std::endl;
+        std::cout << std::endl;
+        }
+    }
 
     // Maintenance-robust normal read: one rack (cluster) is under maintenance / failed, which
     // takes out several blocks of the stripe. We read the whole stripe's data blocks by first
