@@ -163,7 +163,7 @@ int main(int argc, char **argv)
     std::cout << "Current working directory: " << sys_config_path << std::endl;
 
     const ECProject::Config *config = ECProject::Config::getInstance(sys_config_path);
-    std::string client_ip = "127.0.0.1";
+    std::string client_ip = "10.10.1.1";
     int client_port = 44444;
     ECProject::Client client(client_ip, client_port, config->CoordinatorIP + ":" + std::to_string(config->CoordinatorPort), sys_config_path);
     std::cout << client.sayHelloToCoordinatorByGrpc("Client ID: " + client_ip + ":" + std::to_string(client_port)) << std::endl;
@@ -307,27 +307,27 @@ int main(int argc, char **argv)
 
 
     // for one block recovery
-    // {
-    //     const double recovered_mb = block_size;
-    //     std::vector<std::chrono::duration<double>> one_block_recovery_time_spans;
-    //     std::cout << "One block recovery test start" << std::endl;
-    //     for (int i = 0; i < 10; i++)
-    //     {
-    //         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    //         client.recovery(0, 0);
-    //         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    //         std::chrono::duration<double> time_span =
-    //             std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    //         one_block_recovery_time_spans.push_back(time_span);
-    //         if (time_span.count() > 0)
-    //             std::cout << "[" << i << "th] One block recovery throughput: "
-    //                       << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
-    //     }
-    //     print_throughput_summary("One block recovery", one_block_recovery_time_spans, recovered_mb);
-    //     std::cout << "One block recovery test end" << std::endl;
-    //     std::cout << std::endl;
-    // }
-
+    {
+        const double recovered_mb = block_size;
+        std::vector<std::chrono::duration<double>> one_block_recovery_time_spans;
+        std::cout << "One block recovery test start" << std::endl;
+        for (int i = 0; i < 10; i++)
+        {
+            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+            client.recovery(0, 0);
+            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> time_span =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            one_block_recovery_time_spans.push_back(time_span);
+            if (time_span.count() > 0)
+                std::cout << "[" << i << "th] One block recovery throughput: "
+                          << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
+        }
+        print_throughput_summary("One block recovery", one_block_recovery_time_spans, recovered_mb);
+        std::cout << "One block recovery test end" << std::endl;
+        std::cout << std::endl;
+    }
+/*
     // for two block recovery (test blocks 0 and 1)
     {
         const double recovered_mb = 2.0 * block_size;
@@ -349,7 +349,7 @@ int main(int argc, char **argv)
         std::cout << "Two block recovery test end" << std::endl;
         std::cout << std::endl;
     }
-    
+*/
     // Multi block recovery: first cluster (rack) fails under current layout + placement
     // {
     //     const int test_stripe_id = 0;

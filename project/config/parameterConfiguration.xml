@@ -6,18 +6,18 @@
     <!--1048576-->
     <!--8388608-->
     <!--67108864-->
-    <DatanodeNumPerCluster>6</DatanodeNumPerCluster>
-    <ClusterNum>21</ClusterNum>
-    <CoordinatorIP>127.0.0.1</CoordinatorIP>
+    <DatanodeNumPerCluster>3</DatanodeNumPerCluster>
+    <ClusterNum>11</ClusterNum>
+    <CoordinatorIP>10.10.1.2</CoordinatorIP>
     <CoordinatorPort>55555</CoordinatorPort>
     <!-- AppendMode: REP_MODE; UNILRC_MODE; CACHED_MODE -->
     <AppendMode>UNILRC_MODE</AppendMode>
     <alpha>2</alpha>
     <!-- LRC: UniLRC; LotusLRC; AzureLRC; OptimalLRC; UniformLRC -->
     <CodeType>AzureLRC</CodeType>
-    <k>48</k>
-    <r>3</r>
-    <z>4</z>
+    <k>24</k>
+    <r>2</r>
+    <z>2</z>
     <!-- <CodeType>UniformLRC</CodeType>
     <k>30</k>
     <r>6</r>
