@@ -340,16 +340,58 @@ bool get_global_decode_plan(int k, int r, int z, const std::string &code_type,
     std::unordered_map<int, bool> failed_map;
     for (int idx : failed_block_indexes) failed_map[idx] = true;
 
+    std::unordered_set<int> failed_local_groups;
+    for (int idx : failed_block_indexes) {
+        try {
+            failed_local_groups.insert(
+                get_block_id_to_local_group_id(code_type, k, r, z, idx));
+        } catch (const std::exception &) {
+        }
+    }
+    bool single_local_group_failure = !failed_local_groups.empty();
+    if (single_local_group_failure) {
+        for (int idx : failed_block_indexes) {
+            try {
+                if (!failed_local_groups.count(
+                        get_block_id_to_local_group_id(code_type, k, r, z, idx))) {
+                    single_local_group_failure = false;
+                    break;
+                }
+            } catch (const std::exception &) {
+                single_local_group_failure = false;
+                break;
+            }
+        }
+    }
+    // Single-rack same-local-group loss: off-rack helpers are the failed group's global
+    // parity plus its local parity on other racks; other groups' local parities mislead GE.
+    auto is_decode_candidate = [&](int row_id) {
+        if (failed_map.count(row_id))
+            return false;
+        if (single_local_group_failure && row_id >= k + r) {
+            try {
+                const int lg = get_block_id_to_local_group_id(code_type, k, r, z, row_id);
+                if (!failed_local_groups.count(lg))
+                    return false;
+            } catch (const std::exception &) {
+            }
+        }
+        return true;
+    };
+
     // Prefer first m rows (global rows). Collect candidate rows (non-failed).
     std::vector<int> candidates;
     for (int i = 0; i < m; i++) {
-        if (!failed_map.count(i)) candidates.push_back(i);
+        if (is_decode_candidate(i))
+            candidates.push_back(i);
     }
     // If not enough, append remaining non-failed rows (local parity rows)
     if ((int)candidates.size() < k) {
         for (int i = m; i < nrows; i++) {
-            if (!failed_map.count(i)) candidates.push_back(i);
-            if ((int)candidates.size() >= k) break;
+            if (is_decode_candidate(i))
+                candidates.push_back(i);
+            if ((int)candidates.size() >= k)
+                break;
         }
     }
 
@@ -501,6 +543,141 @@ bool get_global_decode_plan(int k, int r, int z, const std::string &code_type,
     delete[] tempM;
     delete[] invM;
     return true;
+}
+
+namespace {
+
+int local_recovery_block_num(const std::string &code_type)
+{
+    return (code_type == "LotusLRC") ? 2 : 1;
+}
+
+bool global_decode_plan_exists(int k, int r, int z, const std::string &code_type,
+                               const std::vector<int> &all_failed,
+                               const std::vector<int> &recover_ids)
+{
+    if (recover_ids.empty())
+        return false;
+    std::vector<int> decode_ids;
+    int rows = 0, cols = 0;
+    return get_global_decode_plan(k, r, z, code_type, all_failed, decode_ids, nullptr, nullptr,
+                                  rows, cols, &recover_ids);
+}
+
+bool all_same_local_group(const std::string &code_type, int k, int r, int z,
+                          const std::vector<int> &failed)
+{
+    if (failed.empty())
+        return false;
+    const int lg0 = get_block_id_to_local_group_id(code_type, k, r, z, failed[0]);
+    for (size_t i = 1; i < failed.size(); ++i) {
+        if (get_block_id_to_local_group_id(code_type, k, r, z, failed[i]) != lg0)
+            return false;
+    }
+    return true;
+}
+
+std::vector<int> multi_recovery_batch(const std::string &code_type, int r,
+                                      const std::vector<int> &failed_on_rack)
+{
+    (void)r;
+    const size_t local_num = static_cast<size_t>(local_recovery_block_num(code_type));
+    if (failed_on_rack.size() <= local_num)
+        return {};
+    return std::vector<int>(failed_on_rack.begin(),
+                            failed_on_rack.end() - static_cast<std::ptrdiff_t>(local_num));
+}
+
+} // namespace
+
+std::vector<RecoveryPhase> plan_multi_block_recovery(const std::string &code_type, int k, int r,
+                                                       int z, const std::vector<int> &failed)
+{
+    std::vector<RecoveryPhase> phases;
+    if (failed.empty())
+        return phases;
+
+    const size_t local_num = static_cast<size_t>(local_recovery_block_num(code_type));
+
+    if (failed.size() == 1) {
+        phases.push_back({RecoveryPhaseKind::SingleBlock, failed, failed});
+        return phases;
+    }
+
+    if (failed.size() == 2) {
+        if (!blocks_same_local_group(code_type, k, r, z, failed[0], failed[1])) {
+            phases.push_back({RecoveryPhaseKind::SingleBlock, {failed[0]}, {failed[0]}});
+            phases.push_back({RecoveryPhaseKind::SingleBlock, {failed[1]}, {failed[1]}});
+            return phases;
+        }
+        if (code_type == "LotusLRC") {
+            phases.push_back({RecoveryPhaseKind::GlobalMulti, failed, {}});
+            return phases;
+        }
+        const int first = std::min(failed[0], failed[1]);
+        const int second = std::max(failed[0], failed[1]);
+        phases.push_back({RecoveryPhaseKind::GlobalMulti, failed, {first}});
+        phases.push_back({RecoveryPhaseKind::SingleBlock, {second}, {second}});
+        return phases;
+    }
+
+    if (!all_same_local_group(code_type, k, r, z, failed)) {
+        phases.push_back({RecoveryPhaseKind::GlobalMulti, failed, failed});
+        return phases;
+    }
+
+    const std::vector<int> std_batch = multi_recovery_batch(code_type, r, failed);
+    if (!std_batch.empty() &&
+        global_decode_plan_exists(k, r, z, code_type, failed, std_batch)) {
+        phases.push_back({RecoveryPhaseKind::GlobalMulti, failed, std_batch});
+        const std::vector<int> leftover(failed.begin() + static_cast<std::ptrdiff_t>(std_batch.size()),
+                                        failed.end());
+        if (code_type == "LotusLRC" && leftover.size() == 2) {
+            phases.push_back({RecoveryPhaseKind::GlobalMulti, leftover, {}});
+        } else {
+            for (int bid : leftover)
+                phases.push_back({RecoveryPhaseKind::SingleBlock, {bid}, {bid}});
+        }
+        return phases;
+    }
+
+    std::vector<int> data_failed;
+    std::vector<int> parity_failed;
+    data_failed.reserve(failed.size());
+    parity_failed.reserve(failed.size());
+    for (int bid : failed) {
+        if (bid < k)
+            data_failed.push_back(bid);
+        else
+            parity_failed.push_back(bid);
+    }
+
+    if (data_failed.size() >= 2) {
+        if (global_decode_plan_exists(k, r, z, code_type, failed, data_failed)) {
+            phases.push_back({RecoveryPhaseKind::GlobalMulti, failed, data_failed});
+            for (int bid : parity_failed)
+                phases.push_back({RecoveryPhaseKind::SingleBlock, {bid}, {bid}});
+            return phases;
+        }
+        if (data_failed.size() > local_num) {
+            const std::vector<int> data_batch(
+                data_failed.begin(),
+                data_failed.end() - static_cast<std::ptrdiff_t>(local_num));
+            if (global_decode_plan_exists(k, r, z, code_type, failed, data_batch)) {
+                phases.push_back({RecoveryPhaseKind::GlobalMulti, failed, data_batch});
+                for (size_t i = data_failed.size() - local_num; i < data_failed.size(); ++i)
+                    phases.push_back(
+                        {RecoveryPhaseKind::SingleBlock, {data_failed[i]}, {data_failed[i]}});
+                for (int bid : parity_failed)
+                    phases.push_back({RecoveryPhaseKind::SingleBlock, {bid}, {bid}});
+                return phases;
+            }
+        }
+    }
+
+    for (int bid : failed)
+        phases.push_back({RecoveryPhaseKind::SingleBlock, {bid}, {bid}});
+    return phases;
 }
 
 /* ----- Recovery group and block ids ----- */

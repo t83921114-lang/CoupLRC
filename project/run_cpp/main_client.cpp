@@ -154,9 +154,26 @@ std::vector<int> multi_recovery_batch(const std::string &code_type, int r,
     (void)r;
     const size_t local_num = static_cast<size_t>(local_recovery_block_num(code_type));
     if (failed_on_rack.size() <= local_num)
-        return {}; // everything can be handled by local-group recovery
+        return {};
     return std::vector<int>(failed_on_rack.begin(),
                             failed_on_rack.end() - static_cast<std::ptrdiff_t>(local_num));
+}
+
+void print_rack_recovery_plan(const std::vector<ECProject::RecoveryPhase> &phases)
+{
+    for (size_t i = 0; i < phases.size(); ++i)
+    {
+        const auto &p = phases[i];
+        const char *kind =
+            (p.kind == ECProject::RecoveryPhaseKind::GlobalMulti) ? "GlobalMulti" : "SingleBlock";
+        std::cout << "    phase " << (i + 1) << ": " << kind << " all_failed=[";
+        for (size_t j = 0; j < p.all_failed.size(); ++j)
+            std::cout << (j ? "," : "") << p.all_failed[j];
+        std::cout << "] recover=[";
+        for (size_t j = 0; j < p.recover_ids.size(); ++j)
+            std::cout << (j ? "," : "") << p.recover_ids[j];
+        std::cout << "]" << std::endl;
+    }
 }
 
 } // namespace
@@ -212,7 +229,7 @@ int main(int argc, char **argv)
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
     
-    int stripe_num = 1;
+    int stripe_num = 10;
     size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
     std::cout << "Starting set stripe operation" << std::endl;
     std::chrono::high_resolution_clock::time_point set_start = std::chrono::high_resolution_clock::now();
@@ -368,7 +385,7 @@ int main(int argc, char **argv)
         std::cout << std::endl;
     }
 */
-
+/*
     // 打点 breakdown test for two block recovery (test blocks 0 and 1)
     {
         const double recovered_mb = 2.0 * block_size;
@@ -421,7 +438,7 @@ int main(int argc, char **argv)
         std::cout << "Two block recovery breakdown test end" << std::endl;
         std::cout << std::endl;
     }
-
+*/
 
 /*
 // Multi block recovery: first cluster (rack) fails under current layout + placement
@@ -500,6 +517,91 @@ int main(int argc, char **argv)
         }
     }
 */
+
+// 多条带单机架修复：cluster 0 损坏时，修复所有在 cluster 0 上有 block 的条带
+{
+    const int failed_cluster_id = 0;
+    struct StripeRackRecoveryPlan
+    {
+        int stripe_id;
+        std::vector<int> failed_blocks;
+        std::vector<ECProject::RecoveryPhase> phases;
+    };
+    std::vector<StripeRackRecoveryPlan> recovery_plans;
+    recovery_plans.reserve(static_cast<size_t>(stripe_num));
+
+    for (int sid = 0; sid < stripe_num; ++sid)
+    {
+        std::vector<int> failed_blocks;
+        try
+        {
+            failed_blocks = blocks_on_cluster(
+                code_type, k, r, z, n, sid, failed_cluster_id, config->ClusterNum);
+        }
+        catch (const std::exception &e)
+        {
+            std::cout << "Layout lookup failed for stripe " << sid << ": " << e.what() << std::endl;
+            return -1;
+        }
+        if (failed_blocks.empty())
+            continue;
+
+        StripeRackRecoveryPlan plan;
+        plan.stripe_id = sid;
+        plan.failed_blocks = std::move(failed_blocks);
+        plan.phases =
+            ECProject::plan_multi_block_recovery(code_type, k, r, z, plan.failed_blocks);
+        recovery_plans.push_back(std::move(plan));
+    }
+
+    if (recovery_plans.empty())
+    {
+        std::cout << "No blocks on cluster " << failed_cluster_id << " across " << stripe_num
+                  << " stripes, skip one-rack test" << std::endl;
+    }
+    else
+    {
+        std::cout << "Multi block recovery test start (one rack, cluster " << failed_cluster_id
+                  << ", " << recovery_plans.size() << " stripe(s) with blocks on failed rack)"
+                  << std::endl;
+        double total_recovered_mb = 0.0;
+        for (const auto &plan : recovery_plans)
+        {
+            std::cout << "  Stripe " << plan.stripe_id << ":" << std::endl;
+            print_block_ids("    Failed blocks on rack (layout+placement):", plan.failed_blocks);
+            print_rack_recovery_plan(plan.phases);
+            total_recovered_mb +=
+                static_cast<double>(plan.failed_blocks.size()) * block_size;
+        }
+
+        std::vector<std::chrono::duration<double>> multi_block_recovery_one_rack_time_spans;
+        for (int i = 0; i < 10; i++)
+        {
+            std::chrono::high_resolution_clock::time_point t1 =
+                std::chrono::high_resolution_clock::now();
+            for (const auto &plan : recovery_plans)
+            {
+                if (!client.multi_block_recovery(plan.stripe_id, plan.failed_blocks))
+                {
+                    std::cout << "[Client] rack recovery failed for stripe " << plan.stripe_id
+                              << std::endl;
+                }
+            }
+            std::chrono::high_resolution_clock::time_point t2 =
+                std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> time_span =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            multi_block_recovery_one_rack_time_spans.push_back(time_span);
+            if (time_span.count() > 0)
+                std::cout << "[" << i << "th] One rack recovery throughput (all affected stripes): "
+                          << (total_recovered_mb / time_span.count()) << " MB/s" << std::endl;
+        }
+        print_throughput_summary("One rack recovery (all affected stripes)",
+                                 multi_block_recovery_one_rack_time_spans, total_recovered_mb);
+        std::cout << "One rack recovery test end" << std::endl;
+        std::cout << std::endl;
+    }
+}
 
 /*
     // Maintenance-robust normal read: one rack (cluster) is under maintenance / failed, which

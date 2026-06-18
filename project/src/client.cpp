@@ -1311,11 +1311,45 @@ namespace ECProject
                                               const std::vector<int> &recovery_block_ids)
   {
     RecoveryBreakdownTimes total;
+    if (recovery_block_ids.empty()) {
+      const std::string &code_type = m_sys_config->CodeType;
+      const int k = m_sys_config->k, r = m_sys_config->r, z = m_sys_config->z;
+      const auto phases =
+          ECProject::plan_multi_block_recovery(code_type, k, r, z, all_failed_block_ids);
+      for (const auto &phase : phases) {
+        RecoveryBreakdownTimes phase_times;
+        if (phase.kind == ECProject::RecoveryPhaseKind::GlobalMulti) {
+          if (!call_global_recovery_breakdown(stripe_id, phase.all_failed, phase.recover_ids,
+                                              phase_times.disk_read, phase_times.network,
+                                              phase_times.decode, phase_times.disk_write))
+            return false;
+        } else {
+          double dr = 0.0, nw = 0.0, dc = 0.0, dw = 0.0;
+          if (phase.recover_ids.empty() ||
+              !recovery_breakdown(stripe_id, phase.recover_ids[0], dr, nw, dc, dw))
+            return false;
+          phase_times.set_from(dr, nw, dc, dw);
+        }
+        total.absorb_sum(phase_times);
+      }
+      disk_read_time = total.disk_read;
+      network_time = total.network;
+      decode_time = total.decode;
+      disk_write_time = total.disk_write;
+      return true;
+    }
+
     if (all_failed_block_ids.size() != 2) {
       if (!call_global_recovery_breakdown(stripe_id, all_failed_block_ids, recovery_block_ids,
                                           disk_read_time, network_time, decode_time, disk_write_time))
         return false;
       return true;
+    }
+
+    if (recovery_block_ids.size() == 2) {
+      return call_global_recovery_breakdown(stripe_id, all_failed_block_ids, recovery_block_ids,
+                                            disk_read_time, network_time, decode_time,
+                                            disk_write_time);
     }
 
     const int f0 = all_failed_block_ids[0];
@@ -1461,9 +1495,27 @@ namespace ECProject
   bool Client::multi_block_recovery(int stripe_id, std::vector<int> all_failed_block_ids,
                                     const std::vector<int> &recovery_block_ids)
   {
-    if (all_failed_block_ids.size() != 2) {
-      return call_global_recovery(stripe_id, all_failed_block_ids, recovery_block_ids);
+    if (recovery_block_ids.empty()) {
+      const std::string &code_type = m_sys_config->CodeType;
+      const int k = m_sys_config->k, r = m_sys_config->r, z = m_sys_config->z;
+      const auto phases =
+          ECProject::plan_multi_block_recovery(code_type, k, r, z, all_failed_block_ids);
+      for (const auto &phase : phases) {
+        if (phase.kind == ECProject::RecoveryPhaseKind::GlobalMulti) {
+          if (!call_global_recovery(stripe_id, phase.all_failed, phase.recover_ids))
+            return false;
+        } else if (phase.recover_ids.empty() || !recovery(stripe_id, phase.recover_ids[0])) {
+          return false;
+        }
+      }
+      return true;
     }
+
+    if (all_failed_block_ids.size() != 2)
+      return call_global_recovery(stripe_id, all_failed_block_ids, recovery_block_ids);
+
+    if (recovery_block_ids.size() == 2)
+      return call_global_recovery(stripe_id, all_failed_block_ids, recovery_block_ids);
 
     const int f0 = all_failed_block_ids[0];
     const int f1 = all_failed_block_ids[1];

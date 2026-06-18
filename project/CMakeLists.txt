@@ -180,6 +180,22 @@ add_executable(recovery_plan_test
     ${ASM_SOURCES}
 )
 
+add_executable(multi_block_plan_test
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/multi_block_plan_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder_layout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/recovery_strategy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/encoder.cpp
+    ${ASM_SOURCES}
+)
+target_include_directories(multi_block_plan_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(multi_block_plan_test
+    -lpthread
+    -lJerasure
+    -lgf_complete
+)
+
 # LotusLRC 同本地组双块本地修复系数验证（纯 GF 数学，无 gRPC / cluster）
 add_executable(lotus_2block_verify
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/lotus_2block_verify.cpp

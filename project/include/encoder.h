@@ -146,6 +146,22 @@ namespace ECProject
     TwoBlockRecoveryMode select_two_block_recovery_mode(const std::string &code_type, int k, int r, int z,
                                                         int block_id0, int block_id1);
 
+    enum class RecoveryPhaseKind {
+        GlobalMulti,
+        SingleBlock,
+    };
+
+    struct RecoveryPhase {
+        RecoveryPhaseKind kind;
+        std::vector<int> all_failed;
+        std::vector<int> recover_ids;
+    };
+
+    // Plan multi-block recovery phases. all_failed in each GlobalMulti phase is the full
+    // unavailable set; recover_ids is the N-1 (or N-2 for Lotus) global batch subset.
+    std::vector<RecoveryPhase> plan_multi_block_recovery(const std::string &code_type, int k, int r,
+                                                         int z, const std::vector<int> &failed);
+
     // Global multi-block decode plan:
     // - failed_block_indexes: ids of failed blocks (row indices in generator matrix)
     // - global_decode_block_indexes: chosen source block ids (columns to read)
