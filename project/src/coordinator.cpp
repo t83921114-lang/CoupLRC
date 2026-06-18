@@ -1337,7 +1337,89 @@ namespace ECProject
     }
   }
 
-  bool CoordinatorImpl::recovery_one_block_breakdown(int stripe_id, int failed_block_id, 
+  namespace {
+
+  struct RecoveryBreakdownSamples
+  {
+    std::vector<double> disk_io_start_time;
+    std::vector<double> disk_io_end_time;
+    std::vector<double> decode_start_time;
+    std::vector<double> decode_end_time;
+    std::vector<double> network_start_time;
+    std::vector<double> network_end_time;
+    std::vector<double> grpc_notify_time;
+    std::vector<double> grpc_start_time;
+    std::vector<double> data_node_grpc_notify_time;
+    std::vector<double> data_node_grpc_start_time;
+    double cross_rack_network_time = 0.0;
+    double cross_rack_xor_time = 0.0;
+    double dest_data_node_network_time = 0.0;
+    double dest_data_node_disk_io_time = 0.0;
+
+    void append_recovery_reply(const proxy_proto::RecoveryReply &reply, double grpc_notify)
+    {
+      disk_io_start_time.push_back(reply.disk_io_start_time());
+      disk_io_end_time.push_back(reply.disk_io_end_time());
+      decode_start_time.push_back(reply.decode_start_time());
+      decode_end_time.push_back(reply.decode_end_time());
+      network_start_time.push_back(reply.network_start_time());
+      network_end_time.push_back(reply.network_end_time());
+      grpc_notify_time.push_back(grpc_notify);
+      grpc_start_time.push_back(reply.grpc_start_time());
+      data_node_grpc_notify_time.push_back(reply.data_node_grpc_notify_time());
+      data_node_grpc_start_time.push_back(reply.data_node_grpc_start_time());
+      cross_rack_network_time = std::max(cross_rack_network_time, reply.cross_rack_time());
+      cross_rack_xor_time = std::max(cross_rack_xor_time, reply.cross_rack_xor_time());
+      dest_data_node_network_time = std::max(dest_data_node_network_time, reply.dest_data_node_network_time());
+      dest_data_node_disk_io_time = std::max(dest_data_node_disk_io_time, reply.dest_data_node_disk_io_time());
+    }
+
+    void append_degraded_read_reply(const proxy_proto::DegradedReadReply &reply, double grpc_notify)
+    {
+      disk_io_start_time.push_back(reply.disk_io_start_time());
+      disk_io_end_time.push_back(reply.disk_io_end_time());
+      decode_start_time.push_back(reply.decode_start_time());
+      decode_end_time.push_back(reply.decode_end_time());
+      network_start_time.push_back(reply.network_start_time());
+      network_end_time.push_back(reply.network_end_time());
+      grpc_notify_time.push_back(grpc_notify);
+      grpc_start_time.push_back(reply.grpc_start_time());
+      data_node_grpc_notify_time.push_back(reply.data_node_grpc_notify_time());
+      data_node_grpc_start_time.push_back(reply.data_node_grpc_start_time());
+      cross_rack_network_time = std::max(cross_rack_network_time, reply.cross_rack_time());
+      cross_rack_xor_time = std::max(cross_rack_xor_time, reply.cross_rack_xor_time());
+    }
+
+    void fill_recovery_reply(coordinator_proto::RecoveryReply *reply) const
+    {
+      if (disk_io_start_time.empty())
+        return;
+      const double max_disk_io_time =
+          *std::max_element(disk_io_end_time.begin(), disk_io_end_time.end()) -
+          *std::min_element(disk_io_start_time.begin(), disk_io_start_time.end());
+      reply->set_disk_read_time(max_disk_io_time);
+      const double max_decode_time =
+          *std::max_element(decode_end_time.begin(), decode_end_time.end()) -
+          *std::min_element(decode_start_time.begin(), decode_start_time.end());
+      reply->set_decode_time(max_decode_time + cross_rack_xor_time);
+      const double max_network_time =
+          *std::max_element(network_end_time.begin(), network_end_time.end()) -
+          *std::min_element(network_start_time.begin(), network_start_time.end());
+      const double max_grpc_delay =
+          *std::max_element(grpc_start_time.begin(), grpc_start_time.end()) -
+          *std::min_element(grpc_notify_time.begin(), grpc_notify_time.end());
+      const double max_data_node_grpc_delay =
+          *std::max_element(data_node_grpc_start_time.begin(), data_node_grpc_start_time.end()) -
+          *std::min_element(data_node_grpc_notify_time.begin(), data_node_grpc_notify_time.end());
+      reply->set_network_time(max_network_time + cross_rack_network_time + dest_data_node_network_time +
+                              max_grpc_delay + max_data_node_grpc_delay);
+      reply->set_disk_write_time(dest_data_node_disk_io_time);
+    }
+  };
+
+  } // namespace
+
+  bool CoordinatorImpl::recovery_one_block_breakdown(int stripe_id, int failed_block_id,
     std::vector<double> &disk_io_start_time, std::vector<double> &disk_io_end_time, std::vector<double> &decode_start_time, std::vector<double> &decode_end_time,
     std::vector<double> &network_start_time, std::vector<double> &network_end_time, double &cross_rack_network_time, double &cross_rack_xor_time,
     std::vector<double> &grpc_notify_time, std::vector<double> &grpc_start_time, std::vector<double> &data_node_grpc_notify_time, std::vector<double> &data_node_grpc_start_time,
@@ -1723,6 +1805,162 @@ namespace ECProject
     return false;
   }
 
+  bool CoordinatorImpl::recovery_one_block_with_plan_breakdown(
+      int stripe_id, int failed_block_id,
+      const std::vector<std::pair<int, std::vector<int>>> &plan,
+      coordinator_proto::RecoveryReply *breakdown_reply)
+  {
+    Stripe &t_stripe = m_stripe_table[stripe_id];
+    RecoveryBreakdownSamples samples;
+    if (plan.empty())
+    {
+      std::cout << "[Coordinator] recovery_one_block_with_plan_breakdown: empty plan for block "
+                << failed_block_id << std::endl;
+      return false;
+    }
+
+    if (plan.size() == 1)
+    {
+      int group_id = plan[0].first;
+      const std::vector<int> &block_ids = plan[0].second;
+      int chosen_cluster_id = get_cluster_id_by_group_id(t_stripe, group_id);
+      std::string chosen_proxy = m_cluster_table[chosen_cluster_id].proxy_ip + ":" +
+                                 std::to_string(m_cluster_table[chosen_cluster_id].proxy_port);
+      grpc::ClientContext recovery_context;
+      proxy_proto::RecoveryRequest recovery_request;
+      proxy_proto::RecoveryReply recovery_reply;
+      recovery_request.set_failed_block_id(failed_block_id);
+      recovery_request.set_failed_block_key(t_stripe.blocks[failed_block_id]->block_key);
+      int t_node_id = t_stripe.blocks[failed_block_id]->map2node;
+      recovery_request.set_replaced_node_ip(m_node_table[t_node_id].node_ip);
+      recovery_request.set_replaced_node_port(m_node_table[t_node_id].node_port);
+      recovery_request.set_cross_rack_num(0);
+      add_block_list_to_recovery_request(t_stripe, block_ids, &recovery_request);
+      std::chrono::high_resolution_clock::time_point grpc_notify = std::chrono::high_resolution_clock::now();
+      double grpc_notify_time =
+          std::chrono::duration_cast<std::chrono::duration<double>>(grpc_notify.time_since_epoch()).count();
+      grpc::Status status = m_proxy_ptrs[chosen_proxy]->recoveryBreakdown(&recovery_context, recovery_request, &recovery_reply);
+      if (!status.ok())
+      {
+        std::cout << "[Coordinator] recovery breakdown of " << stripe_id << "_" << failed_block_id
+                  << " failed!" << std::endl;
+        return false;
+      }
+      samples.append_recovery_reply(recovery_reply, grpc_notify_time);
+      samples.fill_recovery_reply(breakdown_reply);
+      std::cout << "[Coordinator] recovery breakdown of " << stripe_id << "_" << failed_block_id
+                << " success!" << std::endl;
+      return true;
+    }
+
+    int dest_group_id = t_stripe.blocks[failed_block_id]->map2group;
+    int dest_cluster_id = get_cluster_id_by_group_id(t_stripe, dest_group_id);
+    std::string dest_proxy_ip = m_cluster_table[dest_cluster_id].proxy_ip;
+    int dest_proxy_port = m_cluster_table[dest_cluster_id].proxy_port;
+    std::vector<std::string> chosen_proxies;
+    for (size_t i = 0; i < plan.size(); i++)
+      chosen_proxies.push_back(m_cluster_table[get_cluster_id_by_group_id(t_stripe, plan[i].first)].proxy_ip +
+                               ":" + std::to_string(m_cluster_table[get_cluster_id_by_group_id(t_stripe, plan[i].first)].proxy_port));
+
+    std::vector<std::thread> threads;
+    int cross_rack_num = 0;
+    bool dest_success = false;
+    std::mutex samples_mutex;
+
+    for (size_t i = 0; i < plan.size(); i++)
+    {
+      if (plan[i].first == dest_group_id)
+        continue;
+      std::vector<int> block_ids = plan[i].second;
+      std::string proxy_key = chosen_proxies[i];
+      threads.push_back(std::thread([this, &t_stripe, proxy_key, block_ids, failed_block_id, dest_proxy_ip,
+                                     dest_proxy_port, &samples, &samples_mutex]() {
+        grpc::ClientContext degraded_read_context;
+        proxy_proto::DegradedReadRequest degraded_read_request;
+        proxy_proto::DegradedReadReply degraded_read_reply;
+        degraded_read_request.set_clientip(dest_proxy_ip);
+        degraded_read_request.set_clientport(dest_proxy_port + ECProject::PROXY_PORT_SHIFT);
+        degraded_read_request.set_failed_block_id(failed_block_id);
+        degraded_read_request.set_failed_block_key(t_stripe.blocks[failed_block_id]->block_key);
+        add_block_list_to_degraded_read_request(t_stripe, block_ids, &degraded_read_request);
+        std::chrono::high_resolution_clock::time_point grpc_notify = std::chrono::high_resolution_clock::now();
+        double grpc_notify_time =
+            std::chrono::duration_cast<std::chrono::duration<double>>(grpc_notify.time_since_epoch()).count();
+        grpc::Status st = m_proxy_ptrs[proxy_key]->degradedReadBreakdown(&degraded_read_context, degraded_read_request,
+                                                                         &degraded_read_reply);
+        if (st.ok())
+        {
+          std::lock_guard<std::mutex> lock(samples_mutex);
+          samples.append_degraded_read_reply(degraded_read_reply, grpc_notify_time);
+          std::cout << "[Coordinator] partial degraded read breakdown of " << failed_block_id << " success!"
+                    << std::endl;
+        }
+        else
+        {
+          std::cout << "[Coordinator] partial degraded read breakdown of " << failed_block_id << " failed!"
+                    << std::endl;
+        }
+      }));
+      cross_rack_num++;
+    }
+
+    std::vector<int> dest_block_ids;
+    for (size_t i = 0; i < plan.size(); i++)
+      if (plan[i].first == dest_group_id)
+      {
+        dest_block_ids = plan[i].second;
+        break;
+      }
+
+    threads.push_back(std::thread([this, &t_stripe, dest_proxy_ip, dest_proxy_port, stripe_id, failed_block_id,
+                                   cross_rack_num, dest_group_id, dest_block_ids, &plan, &samples, &samples_mutex,
+                                   &dest_success]() {
+      grpc::ClientContext recovery_context;
+      proxy_proto::RecoveryRequest recovery_request;
+      proxy_proto::RecoveryReply recovery_reply;
+      recovery_request.set_failed_block_id(failed_block_id);
+      recovery_request.set_failed_block_key(t_stripe.blocks[failed_block_id]->block_key);
+      int t_node_id = t_stripe.blocks[failed_block_id]->map2node;
+      recovery_request.set_replaced_node_ip(m_node_table[t_node_id].node_ip);
+      recovery_request.set_replaced_node_port(m_node_table[t_node_id].node_port);
+      recovery_request.set_cross_rack_num(cross_rack_num);
+      for (size_t i = 0; i < plan.size(); i++)
+        if (plan[i].first != dest_group_id)
+        {
+          int cid = get_cluster_id_by_group_id(t_stripe, plan[i].first);
+          recovery_request.add_proxyip(m_cluster_table[cid].proxy_ip);
+          recovery_request.add_proxyport(m_cluster_table[cid].proxy_port);
+        }
+      add_block_list_to_recovery_request(t_stripe, dest_block_ids, &recovery_request);
+      std::chrono::high_resolution_clock::time_point grpc_notify = std::chrono::high_resolution_clock::now();
+      double grpc_notify_time =
+          std::chrono::duration_cast<std::chrono::duration<double>>(grpc_notify.time_since_epoch()).count();
+      grpc::Status st = m_proxy_ptrs[dest_proxy_ip + ":" + std::to_string(dest_proxy_port)]->recoveryBreakdown(
+          &recovery_context, recovery_request, &recovery_reply);
+      std::lock_guard<std::mutex> lock(samples_mutex);
+      dest_success = st.ok();
+      if (st.ok())
+      {
+        samples.append_recovery_reply(recovery_reply, grpc_notify_time);
+        std::cout << "[Coordinator] recovery breakdown of " << stripe_id << "_" << failed_block_id << " success!"
+                  << std::endl;
+      }
+      else
+      {
+        std::cout << "[Coordinator] recovery breakdown of " << stripe_id << "_" << failed_block_id << " failed!"
+                  << std::endl;
+      }
+    }));
+
+    for (auto &th : threads)
+      th.join();
+
+    if (!dest_success)
+      return false;
+    samples.fill_recovery_reply(breakdown_reply);
+    return true;
+  }
+
 
   grpc::Status CoordinatorImpl::getRecoveryBreakdown(
       grpc::ServerContext *context,
@@ -1733,38 +1971,11 @@ namespace ECProject
     recoveryReply->set_grpc_start_time(std::chrono::duration_cast<std::chrono::duration<double>>(START.time_since_epoch()).count());
     int stripe_id = std::stoi(keyClient->key().substr(0, keyClient->key().find('_')));
     int failed_block_id = std::stoi(keyClient->key().substr(keyClient->key().find('_') + 1));
-    std::vector<double> disk_io_start_time, disk_io_end_time;
-    std::vector<double> decode_start_time, decode_end_time;
-    std::vector<double> network_start_time, network_end_time;
-    double cross_rack_network_time, cross_rack_xor_time;
-    std::vector<double> grpc_notify_time, grpc_start_time;
-    std::vector<double> data_node_grpc_notify_time, data_node_grpc_start_time;
-    double dest_data_node_network_time, dest_data_node_disk_io_time;
-
-    bool if_success = recovery_one_block_breakdown(stripe_id, failed_block_id, 
-      disk_io_start_time, disk_io_end_time, decode_start_time, decode_end_time,
-      network_start_time, network_end_time, cross_rack_network_time, cross_rack_xor_time,
-      grpc_notify_time, grpc_start_time, data_node_grpc_notify_time, data_node_grpc_start_time,
-      dest_data_node_network_time, dest_data_node_disk_io_time);
-
-    if (if_success)
-    {
-      double max_disk_io_time = *std::max_element(disk_io_end_time.begin(), disk_io_end_time.end()) - *std::min_element(disk_io_start_time.begin(), disk_io_start_time.end());
-      recoveryReply->set_disk_read_time(max_disk_io_time);
-      double max_decode_time = *std::max_element(decode_end_time.begin(), decode_end_time.end()) - *std::min_element(decode_start_time.begin(), decode_start_time.end());
-      recoveryReply->set_decode_time(max_decode_time + cross_rack_xor_time);
-      double max_network_time = *std::max_element(network_end_time.begin(), network_end_time.end()) - *std::min_element(network_start_time.begin(), network_start_time.end());
-      double max_grpc_delay = *std::max_element(grpc_start_time.begin(), grpc_start_time.end()) - *std::min_element(grpc_notify_time.begin(), grpc_notify_time.end());
-      double max_data_node_grpc_delay = *std::max_element(data_node_grpc_start_time.begin(), data_node_grpc_start_time.end()) - *std::min_element(data_node_grpc_notify_time.begin(), data_node_grpc_notify_time.end());
-      recoveryReply->set_network_time(max_network_time + cross_rack_network_time + dest_data_node_network_time + max_grpc_delay + max_data_node_grpc_delay);
-      recoveryReply->set_disk_write_time(dest_data_node_disk_io_time);
-      
+    auto plan = ECProject::get_recovery_group_and_block_ids(
+        m_sys_config->CodeType, m_sys_config->k, m_sys_config->r, m_sys_config->z, failed_block_id);
+    if (recovery_one_block_with_plan_breakdown(stripe_id, failed_block_id, plan, recoveryReply))
       return grpc::Status::OK;
-    }
-    else
-    {
-      return grpc::Status(grpc::StatusCode::INTERNAL, "Recovery failed!");
-    }
+    return grpc::Status(grpc::StatusCode::INTERNAL, "Recovery failed!");
   }
 
   grpc::Status CoordinatorImpl::getRecovery(
@@ -2637,6 +2848,173 @@ namespace ECProject
     return true;
   }
 
+  bool CoordinatorImpl::execute_global_recovery_breakdown(int stripe_id,
+                                                          const std::vector<int> &all_failed,
+                                                          const std::vector<int> &recovery_block_ids,
+                                                          coordinator_proto::RecoveryReply *breakdown_reply)
+  {
+    const int all_failed_num = static_cast<int>(all_failed.size());
+    std::vector<int> recover;
+    if (!recovery_block_ids.empty()) {
+      std::unordered_set<int> all_failed_set(all_failed.begin(), all_failed.end());
+      recover.reserve(recovery_block_ids.size());
+      for (int bid : recovery_block_ids) {
+        if (!all_failed_set.count(bid)) {
+          std::cout << "[Coordinator] execute_global_recovery_breakdown: recovery_block_id " << bid
+                    << " not in all_failed" << std::endl;
+          return false;
+        }
+        recover.push_back(bid);
+      }
+    } else {
+      recover = all_failed;
+    }
+    const int recover_num = static_cast<int>(recover.size());
+    if (recover_num == 0)
+      return false;
+
+    std::vector<int> decode_block_ids;
+    int rows = 0, cols = 0;
+    if (!ECProject::get_global_decode_plan(m_sys_config->k, m_sys_config->r, m_sys_config->z,
+                                           m_sys_config->CodeType, all_failed, decode_block_ids,
+                                           nullptr, nullptr, rows, cols, nullptr)) {
+      std::cout << "[Coordinator] execute_global_recovery_breakdown: get multi decode plan failed!"
+                << std::endl;
+      return false;
+    }
+
+    Stripe &t_stripe = m_stripe_table[stripe_id];
+    std::vector<int> clusters_with_blocks;
+    std::vector<std::vector<int>> decode_blocks_per_cluster;
+    for (size_t i = 0; i < decode_block_ids.size(); i++)
+    {
+      int cid = t_stripe.blocks[decode_block_ids[i]]->map2cluster;
+      auto it = std::find(clusters_with_blocks.begin(), clusters_with_blocks.end(), cid);
+      if (it == clusters_with_blocks.end())
+      {
+        clusters_with_blocks.push_back(cid);
+        decode_blocks_per_cluster.push_back(std::vector<int>(1, decode_block_ids[i]));
+      }
+      else
+      {
+        size_t idx = std::distance(clusters_with_blocks.begin(), it);
+        decode_blocks_per_cluster[idx].push_back(decode_block_ids[i]);
+      }
+    }
+
+    int dest_cluster_id = t_stripe.blocks[recover[0]]->map2cluster;
+    std::string dest_proxy_ip = m_cluster_table[dest_cluster_id].proxy_ip;
+    int dest_proxy_port = m_cluster_table[dest_cluster_id].proxy_port;
+    std::string dest_proxy_key = dest_proxy_ip + ":" + std::to_string(dest_proxy_port);
+    int cross_rack_num = 0;
+    for (size_t i = 0; i < clusters_with_blocks.size(); i++)
+      if (clusters_with_blocks[i] != dest_cluster_id)
+        cross_rack_num++;
+
+    std::vector<std::string> replaced_ips(recover_num);
+    std::vector<int> replaced_ports(recover_num);
+    std::vector<std::string> failed_keys(recover_num);
+    for (int f = 0; f < recover_num; f++)
+    {
+      int bid = recover[f];
+      int node_id = t_stripe.blocks[bid]->map2node;
+      replaced_ips[f] = m_node_table[node_id].node_ip;
+      replaced_ports[f] = m_node_table[node_id].node_port;
+      failed_keys[f] = t_stripe.blocks[bid]->block_key;
+    }
+
+    RecoveryBreakdownSamples samples;
+    std::mutex samples_mutex;
+    bool dest_success = false;
+    std::string dest_error_message;
+    std::vector<std::thread> threads;
+
+    threads.push_back(std::thread([this, &t_stripe, dest_proxy_key, dest_cluster_id, recover_num, &all_failed,
+                                   &recover, &decode_block_ids, &failed_keys, &replaced_ips, &replaced_ports,
+                                   cross_rack_num, &decode_blocks_per_cluster, &clusters_with_blocks, &samples,
+                                   &samples_mutex, &dest_success, &dest_error_message]() {
+      grpc::ClientContext recovery_context;
+      proxy_proto::RecoveryRequest recovery_request;
+      proxy_proto::RecoveryReply recovery_reply;
+      recovery_request.set_cross_rack_num(cross_rack_num);
+      for (size_t i = 0; i < all_failed.size(); i++)
+        recovery_request.add_all_failed_block_ids(all_failed[i]);
+      for (int i = 0; i < recover_num; i++)
+      {
+        recovery_request.add_failed_block_ids(recover[i]);
+        recovery_request.add_failed_block_keys(failed_keys[i]);
+        recovery_request.add_replaced_node_ips(replaced_ips[i]);
+        recovery_request.add_replaced_node_ports(replaced_ports[i]);
+      }
+      for (size_t i = 0; i < decode_block_ids.size(); i++)
+        recovery_request.add_decode_block_ids(decode_block_ids[i]);
+      size_t dest_idx = 0;
+      for (; dest_idx < clusters_with_blocks.size(); dest_idx++)
+        if (clusters_with_blocks[dest_idx] == dest_cluster_id)
+          break;
+      if (dest_idx < clusters_with_blocks.size())
+        add_block_list_to_recovery_request(t_stripe, decode_blocks_per_cluster[dest_idx], &recovery_request);
+      std::chrono::high_resolution_clock::time_point grpc_notify = std::chrono::high_resolution_clock::now();
+      double grpc_notify_time =
+          std::chrono::duration_cast<std::chrono::duration<double>>(grpc_notify.time_since_epoch()).count();
+      grpc::Status st = m_proxy_ptrs[dest_proxy_key]->recoveryBreakdown(&recovery_context, recovery_request,
+                                                                        &recovery_reply);
+      std::lock_guard<std::mutex> lock(samples_mutex);
+      dest_success = st.ok();
+      if (!st.ok())
+        dest_error_message = st.error_message();
+      else
+        samples.append_recovery_reply(recovery_reply, grpc_notify_time);
+    }));
+
+    for (size_t i = 0; i < clusters_with_blocks.size(); i++)
+    {
+      if (clusters_with_blocks[i] == dest_cluster_id)
+        continue;
+      std::string proxy_key = m_cluster_table[clusters_with_blocks[i]].proxy_ip + ":" +
+                              std::to_string(m_cluster_table[clusters_with_blocks[i]].proxy_port);
+      threads.push_back(std::thread([this, &t_stripe, proxy_key, dest_proxy_ip, dest_proxy_port, recover_num,
+                                     &all_failed, &recover, &decode_block_ids, &decode_blocks_per_cluster, i,
+                                     &samples, &samples_mutex]() {
+        grpc::ClientContext degraded_context;
+        proxy_proto::DegradedReadRequest degraded_request;
+        proxy_proto::DegradedReadReply degraded_reply;
+        degraded_request.set_clientip(dest_proxy_ip);
+        degraded_request.set_clientport(dest_proxy_port + ECProject::PROXY_PORT_SHIFT);
+        for (size_t j = 0; j < all_failed.size(); j++)
+          degraded_request.add_all_failed_block_ids(all_failed[j]);
+        for (int j = 0; j < recover_num; j++)
+          degraded_request.add_failed_block_ids(recover[j]);
+        for (size_t j = 0; j < decode_block_ids.size(); j++)
+          degraded_request.add_decode_block_ids(decode_block_ids[j]);
+        add_block_list_to_degraded_read_request(t_stripe, decode_blocks_per_cluster[i], &degraded_request);
+        std::chrono::high_resolution_clock::time_point grpc_notify = std::chrono::high_resolution_clock::now();
+        double grpc_notify_time =
+            std::chrono::duration_cast<std::chrono::duration<double>>(grpc_notify.time_since_epoch()).count();
+        grpc::Status st = m_proxy_ptrs[proxy_key]->degradedReadBreakdown(&degraded_context, degraded_request,
+                                                                       &degraded_reply);
+        if (st.ok())
+        {
+          std::lock_guard<std::mutex> lock(samples_mutex);
+          samples.append_degraded_read_reply(degraded_reply, grpc_notify_time);
+        }
+      }));
+    }
+
+    threads[0].join();
+    for (size_t i = 1; i < threads.size(); i++)
+      threads[i].join();
+
+    if (!dest_success)
+    {
+      std::cout << "[Coordinator] execute_global_recovery_breakdown: dest recoveryBreakdown failed: "
+                << dest_error_message << std::endl;
+      return false;
+    }
+    samples.fill_recovery_reply(breakdown_reply);
+    return true;
+  }
+
   // Maintenance-robust read: reconstruct every failed data block (all_failed) at the dest proxy
   // in a single in-memory global-decode round, then stream each reconstructed block straight to
   // the client (no disk write-back). Mirrors execute_global_recovery but redirects the dest output
@@ -3226,6 +3604,39 @@ namespace ECProject
     if (!execute_global_recovery(stripe_id, all_failed, recover)) {
       return grpc::Status(grpc::StatusCode::INTERNAL, "globalRecovery failed");
     }
+    return grpc::Status::OK;
+  }
+
+  grpc::Status CoordinatorImpl::globalRecoveryBreakdown(
+      grpc::ServerContext *context,
+      const coordinator_proto::StripeIdAndBlockIDsFromClient *request,
+      coordinator_proto::RecoveryReply *replyClient)
+  {
+    std::chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
+    replyClient->set_grpc_start_time(
+        std::chrono::duration_cast<std::chrono::duration<double>>(start.time_since_epoch()).count());
+    const int stripe_id = request->stripe_id();
+    std::vector<int> all_failed;
+    all_failed.reserve(static_cast<size_t>(request->block_ids_size()));
+    for (int i = 0; i < request->block_ids_size(); i++)
+      all_failed.push_back(request->block_ids(i));
+
+    std::unordered_set<int> all_failed_set(all_failed.begin(), all_failed.end());
+    std::vector<int> recover;
+    if (request->recovery_block_ids_size() > 0) {
+      recover.reserve(static_cast<size_t>(request->recovery_block_ids_size()));
+      for (int i = 0; i < request->recovery_block_ids_size(); i++) {
+        const int bid = request->recovery_block_ids(i);
+        if (!all_failed_set.count(bid)) {
+          return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+                              "recovery_block_ids must be subset of block_ids");
+        }
+        recover.push_back(bid);
+      }
+    }
+
+    if (!execute_global_recovery_breakdown(stripe_id, all_failed, recover, replyClient))
+      return grpc::Status(grpc::StatusCode::INTERNAL, "globalRecoveryBreakdown failed");
     return grpc::Status::OK;
   }
 

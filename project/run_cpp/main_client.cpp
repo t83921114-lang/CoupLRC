@@ -108,6 +108,23 @@ void print_throughput_summary(const char *test_name,
     std::cout << "Min throughput: " << min_tp << " MB/s" << std::endl;
 }
 
+void print_breakdown_summary(const char *test_name, double disk_read, double network, double decode,
+                             double disk_write, double recovered_mb, double e2e_seconds)
+{
+    const double segment_sum = disk_read + network + decode + disk_write;
+    std::cout << test_name << " breakdown (seconds, avg over samples):" << std::endl;
+    std::cout << "  disk read:  " << disk_read << std::endl;
+    std::cout << "  network:    " << network << std::endl;
+    std::cout << "  decode:     " << decode << std::endl;
+    std::cout << "  disk write: " << disk_write << std::endl;
+    std::cout << "  segment sum (categories overlap, not wall clock): " << segment_sum << std::endl;
+    if (e2e_seconds > 0)
+    {
+        std::cout << "  e2e wall clock: " << e2e_seconds << std::endl;
+        std::cout << "  throughput (e2e): " << (recovered_mb / e2e_seconds) << " MB/s" << std::endl;
+    }
+}
+
 // Single-rack repair split: how many of the N failed blocks (all in one local group)
 // go through the global (cross-group) batch, leaving the rest for cheap local-group
 // recovery. The number left for local recovery equals the number of local-parity
@@ -351,6 +368,61 @@ int main(int argc, char **argv)
         std::cout << std::endl;
     }
 */
+
+    // 打点 breakdown test for two block recovery (test blocks 0 and 1)
+    {
+        const double recovered_mb = 2.0 * block_size;
+        std::vector<double> disk_read_samples;
+        std::vector<double> network_samples;
+        std::vector<double> decode_samples;
+        std::vector<double> disk_write_samples;
+        std::vector<std::chrono::duration<double>> e2e_time_spans;
+        std::cout << "Two block recovery breakdown test start (blocks 0, 1)" << std::endl;
+        for (int i = 0; i < 10; i++)
+        {
+            double disk_read = 0.0, network = 0.0, decode = 0.0, disk_write = 0.0;
+            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+            const bool ok = client.multi_block_recovery_breakdown(0, {0, 1}, disk_read, network, decode, disk_write);
+            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> e2e_span =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            if (!ok)
+            {
+                std::cout << "[" << i << "th] Two block recovery breakdown failed" << std::endl;
+                continue;
+            }
+            disk_read_samples.push_back(disk_read);
+            network_samples.push_back(network);
+            decode_samples.push_back(decode);
+            disk_write_samples.push_back(disk_write);
+            e2e_time_spans.push_back(e2e_span);
+            if (e2e_span.count() > 0)
+                std::cout << "[" << i << "th] Two block recovery breakdown throughput (e2e): "
+                          << (recovered_mb / e2e_span.count()) << " MB/s" << std::endl;
+        }
+        if (!e2e_time_spans.empty())
+        {
+            const auto avg = [&](const std::vector<double> &v) {
+                return std::accumulate(v.begin(), v.end(), 0.0) / static_cast<double>(v.size());
+            };
+            const double avg_e2e =
+                std::accumulate(e2e_time_spans.begin(), e2e_time_spans.end(), std::chrono::duration<double>::zero())
+                    .count() /
+                static_cast<double>(e2e_time_spans.size());
+            print_breakdown_summary("Two block recovery",
+                                    avg(disk_read_samples), avg(network_samples), avg(decode_samples),
+                                    avg(disk_write_samples), recovered_mb, avg_e2e);
+            print_throughput_summary("Two block recovery breakdown (e2e)", e2e_time_spans, recovered_mb);
+        }
+        else
+        {
+            std::cout << "Two block recovery breakdown: no successful samples" << std::endl;
+        }
+        std::cout << "Two block recovery breakdown test end" << std::endl;
+        std::cout << std::endl;
+    }
+
+
 /*
 // Multi block recovery: first cluster (rack) fails under current layout + placement
     {

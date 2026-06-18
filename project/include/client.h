@@ -78,6 +78,10 @@ namespace ECProject
     // all_failed_block_ids: full failed set for decode plan; recovery_block_ids: subset to repair (empty = repair all)
     bool multi_block_recovery(int stripe_id, std::vector<int> all_failed_block_ids,
                               const std::vector<int> &recovery_block_ids = {});
+    bool multi_block_recovery_breakdown(int stripe_id, std::vector<int> all_failed_block_ids,
+                                        double &disk_read_time, double &network_time,
+                                        double &decode_time, double &disk_write_time,
+                                        const std::vector<int> &recovery_block_ids = {});
     int recovery_full_node(int node_id);
     int recovery_two_nodes(int node_id_0, int node_id_1);
     bool set(std::string key, std::string value);
@@ -110,6 +114,10 @@ namespace ECProject
   private:
     bool call_global_recovery(int stripe_id, const std::vector<int> &all_failed_block_ids,
                               const std::vector<int> &recovery_block_ids);
+    bool call_global_recovery_breakdown(int stripe_id, const std::vector<int> &all_failed_block_ids,
+                                          const std::vector<int> &recovery_block_ids,
+                                          double &disk_read_time, double &network_time,
+                                          double &decode_time, double &disk_write_time);
     // Scheme B: clusters touched by a single-block recovery (sources + dest). Empty = cannot
     // determine (caller should serialize). Used to decide if two recoveries can run in parallel.
     std::set<int> recovery_cluster_set(int stripe_id, int failed_block_id);

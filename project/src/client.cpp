@@ -1241,6 +1241,174 @@ namespace ECProject
   }
 
   namespace {
+    struct RecoveryBreakdownTimes {
+      double disk_read = 0.0;
+      double network = 0.0;
+      double decode = 0.0;
+      double disk_write = 0.0;
+
+      void set_from(double dr, double nw, double dc, double dw)
+      {
+        disk_read = dr;
+        network = nw;
+        decode = dc;
+        disk_write = dw;
+      }
+
+      void absorb_max(const RecoveryBreakdownTimes &other)
+      {
+        disk_read = std::max(disk_read, other.disk_read);
+        network = std::max(network, other.network);
+        decode = std::max(decode, other.decode);
+        disk_write = std::max(disk_write, other.disk_write);
+      }
+
+      void absorb_sum(const RecoveryBreakdownTimes &other)
+      {
+        disk_read += other.disk_read;
+        network += other.network;
+        decode += other.decode;
+        disk_write += other.disk_write;
+      }
+    };
+  } // namespace
+
+  bool Client::call_global_recovery_breakdown(int stripe_id,
+                                                const std::vector<int> &all_failed_block_ids,
+                                                const std::vector<int> &recovery_block_ids,
+                                                double &disk_read_time, double &network_time,
+                                                double &decode_time, double &disk_write_time)
+  {
+    grpc::ClientContext context;
+    coordinator_proto::StripeIdAndBlockIDsFromClient request;
+    request.set_stripe_id(stripe_id);
+    for (int bid : all_failed_block_ids)
+      request.add_block_ids(bid);
+    for (int bid : recovery_block_ids)
+      request.add_recovery_block_ids(bid);
+    coordinator_proto::RecoveryReply reply;
+    std::chrono::high_resolution_clock::time_point grpc_notify = std::chrono::high_resolution_clock::now();
+    grpc::Status status = m_coordinator_ptr->globalRecoveryBreakdown(&context, request, &reply);
+    if (!status.ok()) {
+      std::cout << "[Client] global recovery breakdown failed! code="
+                << static_cast<int>(status.error_code()) << " msg="
+                << status.error_message() << std::endl;
+      return false;
+    }
+    double coordinator_gRPC_delay =
+        reply.grpc_start_time() -
+        std::chrono::duration_cast<std::chrono::duration<double>>(grpc_notify.time_since_epoch()).count();
+    disk_read_time = reply.disk_read_time();
+    network_time = reply.network_time() + coordinator_gRPC_delay;
+    decode_time = reply.decode_time();
+    disk_write_time = reply.disk_write_time();
+    return true;
+  }
+
+  bool Client::multi_block_recovery_breakdown(int stripe_id, std::vector<int> all_failed_block_ids,
+                                              double &disk_read_time, double &network_time,
+                                              double &decode_time, double &disk_write_time,
+                                              const std::vector<int> &recovery_block_ids)
+  {
+    RecoveryBreakdownTimes total;
+    if (all_failed_block_ids.size() != 2) {
+      if (!call_global_recovery_breakdown(stripe_id, all_failed_block_ids, recovery_block_ids,
+                                          disk_read_time, network_time, decode_time, disk_write_time))
+        return false;
+      return true;
+    }
+
+    const int f0 = all_failed_block_ids[0];
+    const int f1 = all_failed_block_ids[1];
+    const std::string &code_type = m_sys_config->CodeType;
+    const int k = m_sys_config->k;
+    const int r = m_sys_config->r;
+    const int z = m_sys_config->z;
+
+    ECProject::TwoBlockRecoveryMode mode =
+        ECProject::select_two_block_recovery_mode(code_type, k, r, z, f0, f1);
+
+    switch (mode) {
+    case ECProject::TwoBlockRecoveryMode::TwoSingleBlock: {
+      int d0 = recovery_dest_cluster(stripe_id, f0);
+      int d1 = recovery_dest_cluster(stripe_id, f1);
+      if (d0 >= 0 && d1 >= 0 && d0 != d1) {
+        RecoveryBreakdownTimes t0, t1;
+        bool ok0 = false, ok1 = false;
+        std::thread th0([&]() {
+          double dr, nw, dc, dw;
+          ok0 = recovery_breakdown(stripe_id, f0, dr, nw, dc, dw);
+          if (ok0) t0.set_from(dr, nw, dc, dw);
+        });
+        std::thread th1([&]() {
+          double dr, nw, dc, dw;
+          ok1 = recovery_breakdown(stripe_id, f1, dr, nw, dc, dw);
+          if (ok1) t1.set_from(dr, nw, dc, dw);
+        });
+        th0.join();
+        th1.join();
+        if (!ok0 || !ok1)
+          return false;
+        total = t0;
+        total.absorb_max(t1);
+      } else {
+        RecoveryBreakdownTimes t0, t1;
+        double dr, nw, dc, dw;
+        if (!recovery_breakdown(stripe_id, f0, dr, nw, dc, dw))
+          return false;
+        t0.set_from(dr, nw, dc, dw);
+        if (!recovery_breakdown(stripe_id, f1, dr, nw, dc, dw))
+          return false;
+        t1.set_from(dr, nw, dc, dw);
+        total = t0;
+        total.absorb_sum(t1);
+      }
+      break;
+    }
+    case ECProject::TwoBlockRecoveryMode::GlobalThenSingle: {
+      if (!recovery_block_ids.empty()) {
+        std::cout << "[Client] warning: recovery_block_ids ignored for GlobalThenSingle two-block mode"
+                  << std::endl;
+      }
+      const int first = std::min(f0, f1);
+      const int second = std::max(f0, f1);
+      RecoveryBreakdownTimes global_times;
+      if (!call_global_recovery_breakdown(stripe_id, {f0, f1}, {first},
+                                          global_times.disk_read, global_times.network,
+                                          global_times.decode, global_times.disk_write))
+        return false;
+      RecoveryBreakdownTimes single_times;
+      {
+        double dr, nw, dc, dw;
+        if (!recovery_breakdown(stripe_id, second, dr, nw, dc, dw))
+          return false;
+        single_times.set_from(dr, nw, dc, dw);
+      }
+      total.absorb_sum(global_times);
+      total.absorb_sum(single_times);
+      break;
+    }
+    case ECProject::TwoBlockRecoveryMode::LotusSameGroupPlanBased:
+      if (!recovery_block_ids.empty()) {
+        std::cout << "[Client] warning: recovery_block_ids ignored for Lotus same-group two-block mode"
+                  << std::endl;
+      }
+      if (!call_global_recovery_breakdown(stripe_id, {f0, f1}, {},
+                                          total.disk_read, total.network, total.decode, total.disk_write))
+        return false;
+      break;
+    default:
+      return false;
+    }
+
+    disk_read_time = total.disk_read;
+    network_time = total.network;
+    decode_time = total.decode;
+    disk_write_time = total.disk_write;
+    return true;
+  }
+
+  namespace {
     // Placement group id of a block (cluster = (stripe_id + group_id) % ClusterNum).
     // Returns -1 if unknown for this code type (caller then serializes, which is safe).
     int block_to_placement_group_id(const std::string &code, int k, int r, int z, int bid)

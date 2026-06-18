@@ -51,6 +51,7 @@ service coordinatorService {
   rpc fullNodeRecovery(NodeIdFromClient) returns (RepBlockNum) {};
   rpc twoNodeRecovery(TwoNodeIdsFromClient) returns (RepBlockNum) {};
   rpc globalRecovery(StripeIdAndBlockIDsFromClient) returns (RecoveryReply) {};
+  rpc globalRecoveryBreakdown(StripeIdAndBlockIDsFromClient) returns (RecoveryReply) {};
   // maintenance-robust normal read: reconstruct the failed rack's data blocks in memory
   // (no disk write-back) using the single-rack N-1/N-2 split, then stream the full stripe's
   // data blocks back to the client.

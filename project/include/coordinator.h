@@ -118,6 +118,10 @@ namespace ECProject
       grpc::ServerContext *context,
       const coordinator_proto::StripeIdAndBlockIDsFromClient *request,
       coordinator_proto::RecoveryReply *replyClient) override;
+    grpc::Status globalRecoveryBreakdown(
+      grpc::ServerContext *context,
+      const coordinator_proto::StripeIdAndBlockIDsFromClient *request,
+      coordinator_proto::RecoveryReply *replyClient) override;
     grpc::Status maintenanceReadStripe(
       grpc::ServerContext *context,
       const coordinator_proto::MaintenanceReadRequest *request,
@@ -170,8 +174,14 @@ namespace ECProject
     bool recovery_one_block(int stripe_id, int failed_block_id);
     bool recovery_one_block_with_plan(int stripe_id, int failed_block_id,
         const std::vector<std::pair<int, std::vector<int>>> &plan);
+    bool recovery_one_block_with_plan_breakdown(int stripe_id, int failed_block_id,
+        const std::vector<std::pair<int, std::vector<int>>> &plan,
+        coordinator_proto::RecoveryReply *breakdown_reply);
     bool execute_global_recovery(int stripe_id, const std::vector<int> &all_failed,
                                  const std::vector<int> &recovery_block_ids);
+    bool execute_global_recovery_breakdown(int stripe_id, const std::vector<int> &all_failed,
+                                           const std::vector<int> &recovery_block_ids,
+                                           coordinator_proto::RecoveryReply *breakdown_reply);
     // Maintenance-robust read (fallback path): single-round all-global decode of all failed data
     // blocks at the dest proxy, streamed back to the client in memory (no disk write-back).
     bool execute_global_degraded_read_to_client(int stripe_id, const std::vector<int> &all_failed,
