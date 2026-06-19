@@ -345,11 +345,15 @@ bool get_global_decode_plan(int k, int r, int z, const std::string &code_type,
     for (int i = 0; i < m; i++) {
         if (!failed_map.count(i)) candidates.push_back(i);
     }
-    // If not enough, append remaining non-failed rows (local parity rows)
+    // If not enough, append ALL non-failed local-parity rows (do NOT stop at k).
+    // Stopping early only ever adds the first local parity (group 0), so recovering
+    // blocks whose missing coordinates are only covered by a later group's local
+    // parity (e.g. group 1's parity row k+r+1) would be left rank-deficient and fail,
+    // even though it is recoverable. Gaussian elimination below picks the k independent
+    // rows from the full pool, so the extra candidates are only used when needed.
     if ((int)candidates.size() < k) {
         for (int i = m; i < nrows; i++) {
             if (!failed_map.count(i)) candidates.push_back(i);
-            if ((int)candidates.size() >= k) break;
         }
     }
 

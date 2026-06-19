@@ -2830,9 +2830,15 @@ namespace ECProject
       }));
     }
 
-    for (size_t i = 1; i < threads.size(); i++)
-      threads[i].detach();
-    threads[0].join();
+    // Join ALL threads (dest recovery + every source degradedRead). The dest proxy receives
+    // partials on a single shared, source-unidentified acceptor port (proxy_port + SHIFT), so
+    // a source connection that is still in flight after this call would be grabbed by the NEXT
+    // recovery round's accept loop, corrupting it. Detaching the source threads here let stale
+    // connections bleed into subsequent same-dest-cluster recoveries (e.g. multi-stripe single
+    // -rack repair, where every stripe writes back to the failed cluster). Joining guarantees
+    // every connection for this round is fully drained/closed before we return.
+    for (auto &th : threads)
+      th.join();
 
     {
       std::lock_guard<std::mutex> lock(dest_status_mutex);

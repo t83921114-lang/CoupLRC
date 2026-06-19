@@ -14,3 +14,4 @@ logs/*
 .clangd
 project/compile_commands.json
 project/build/
+/wondershaper

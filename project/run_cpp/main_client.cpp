@@ -369,6 +369,7 @@ int main(int argc, char **argv)
     }
 */
 
+
     // 打点 breakdown test for two block recovery (test blocks 0 and 1)
     {
         const double recovered_mb = 2.0 * block_size;
@@ -500,6 +501,150 @@ int main(int argc, char **argv)
         }
     }
 */
+
+/*
+//多条带单机架修复
+    {
+        const int failed_cluster_id = 0;
+
+        // Per-stripe repair plan: every stripe written above puts a (possibly different)
+        // subset of its blocks on the failed cluster, since placement is
+        // (stripe_id + group_id) % cluster_num.
+        struct StripeRepairPlan
+        {
+            int stripe_id;
+            std::vector<int> failed;        // all failed blocks on the rack
+            std::vector<int> global_batch;  // recovered via cross-group global batch
+            std::vector<int> local_fill;    // leftover blocks recovered via local-group repair
+            // Exactly 2 failed blocks: multi_block_recovery() handles both internally
+            // (parallel singles / global-then-single / Lotus local) in ONE combined call.
+            // Splitting them into a global batch + a redundant single recovery would issue
+            // an extra recovery() that contends with the next stripe's global recovery.
+            bool combined_two_block;
+            // Lotus only: the leftover local fill is 2 same-group blocks, recovered by a
+            // single-round 2-parity local recovery instead of two single-block recoveries.
+            bool lotus_two_block_local;
+        };
+
+        std::vector<StripeRepairPlan> plans;
+        double recovered_mb = 0.0;
+        bool layout_ok = true;
+
+        for (int sid = 0; sid < stripe_num; ++sid)
+        {
+            std::vector<int> failed;
+            try
+            {
+                failed = blocks_on_cluster(
+                    code_type, k, r, z, n, sid, failed_cluster_id, config->ClusterNum);
+            }
+            catch (const std::exception &e)
+            {
+                std::cout << "Layout lookup failed: " << e.what() << std::endl;
+                layout_ok = false;
+                break;
+            }
+            if (failed.empty())
+                continue; // this stripe has no block on the failed cluster
+
+            StripeRepairPlan plan;
+            plan.stripe_id = sid;
+            plan.failed = failed;
+            plan.combined_two_block = (failed.size() == 2);
+            plan.lotus_two_block_local = false;
+            if (!plan.combined_two_block)
+            {
+                plan.global_batch = multi_recovery_batch(code_type, r, failed);
+                // Leftover blocks (not in the global batch) are recovered by local-group repair.
+                for (int bid : failed)
+                {
+                    if (std::find(plan.global_batch.begin(), plan.global_batch.end(), bid) ==
+                        plan.global_batch.end())
+                        plan.local_fill.push_back(bid);
+                }
+                // Lotus offloads 2 same-local-group leftover blocks to a single-round
+                // 2-parity local recovery; the other LRCs leave 1 block per single recovery.
+                plan.lotus_two_block_local =
+                    (code_type == "LotusLRC" && plan.local_fill.size() == 2);
+            }
+            recovered_mb += static_cast<double>(failed.size()) * block_size;
+            plans.push_back(std::move(plan));
+        }
+
+        if (!layout_ok)
+            return -1;
+
+        if (plans.empty())
+        {
+            std::cout << "No blocks on cluster " << failed_cluster_id
+                    << " for any of the " << stripe_num
+                    << " stripe(s), skip multi-stripe one-rack test" << std::endl;
+        }
+        else
+        {
+        std::cout << "Multi-stripe one-rack recovery test start (cluster "
+                << failed_cluster_id << ", " << plans.size() << " of " << stripe_num
+                << " stripe(s) affected)" << std::endl;
+        for (const auto &plan : plans)
+        {
+            std::cout << " Stripe " << plan.stripe_id << ":" << std::endl;
+            print_block_ids("  Failed blocks on rack (layout+placement):", plan.failed);
+            if (plan.combined_two_block)
+            {
+                print_block_ids("  Two failed blocks via single combined multi_block_recovery:",
+                                plan.failed);
+            }
+            else
+            {
+                print_block_ids("  Blocks via globalRecovery batch:", plan.global_batch);
+                if (plan.lotus_two_block_local)
+                    print_block_ids("  Blocks via Lotus same-group 2-parity local recovery:",
+                                    plan.local_fill);
+                else
+                    print_block_ids("  Blocks via recovery() one-by-one (single-block local):",
+                                    plan.local_fill);
+            }
+        }
+
+        std::vector<std::chrono::duration<double>> multi_stripe_one_rack_time_spans;
+        for (int i = 0; i < 10; i++)
+        {
+            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+            // Repair every affected stripe on the failed cluster.
+            for (const auto &plan : plans)
+            {
+                if (plan.combined_two_block)
+                {
+                    // One combined call handles both failed blocks; no extra local recovery.
+                    client.multi_block_recovery(plan.stripe_id, plan.failed, {});
+                    continue;
+                }
+                // Step 1: global batch recovers the bulk (N-1 of the failed group).
+                if (!plan.global_batch.empty())
+                    client.multi_block_recovery(plan.stripe_id, plan.failed, plan.global_batch);
+                // Step 2: local-group recovery of the leftover block(s).
+                if (plan.lotus_two_block_local)
+                    client.multi_block_recovery(plan.stripe_id, plan.local_fill, {});
+                else
+                    for (int bid : plan.local_fill)
+                        client.recovery(plan.stripe_id, bid);
+            }
+            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> time_span =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            multi_stripe_one_rack_time_spans.push_back(time_span);
+            if (time_span.count() > 0)
+                std::cout << "[" << i << "th] Multi-stripe one rack recovery throughput: "
+                        << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
+        }
+        print_throughput_summary("Multi-stripe one rack recovery", multi_stripe_one_rack_time_spans,
+                                recovered_mb);
+        std::cout << "Multi-stripe one rack recovery test end" << std::endl;
+        std::cout << std::endl;
+        }
+    }
+*/
+
 
 /*
     // Maintenance-robust normal read: one rack (cluster) is under maintenance / failed, which

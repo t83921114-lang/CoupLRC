@@ -1,21 +1,18 @@
 #!/bin/bash
 
-# 检查enp6s0f0是否存在且处于UP状态
-if ip link show enp6s0f0 &> /dev/null && \
-   ip link show enp6s0f0 | grep -q 'state UP'
-then
-    wondershaper -c -a enp6s0f0
-    exit 0
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/limit_common.sh"
+
+CONFIG_FILE="${SCRIPT_DIR}/project/config/cluster.ini"
+COORDINATOR_IP=""
+if [ -f "$CONFIG_FILE" ]; then
+    COORDINATOR_IP=$(get_ini cluster coordinator_ip "$CONFIG_FILE")
 fi
 
-# 检查enp6s0f1是否存在且处于UP状态
-if ip link show enp6s0f1 &> /dev/null && \
-   ip link show enp6s0f1 | grep -q 'state UP'
-then
-    wondershaper -c -a enp6s0f1
-    exit 0
-fi
+IFACE=$(detect_iface "$COORDINATOR_IP") || {
+    echo "fail | no active interface" >&2
+    exit 1
+}
 
-# 如果都不满足则报错
-echo "Error: No active interface found!" >&2
-exit 1
+clear_bandwidth_limits "$IFACE"

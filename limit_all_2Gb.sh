@@ -1,18 +1,7 @@
 #!/bin/bash
 
-HOSTS_FILE="proxy_hosts"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/limit_common.sh"
 
-USER="root"
-
-REMOTE_COMMAND="cd /users/Fengming/UniLRC && sh limit_2Gb.sh"
-
-PARALLEL=5
-
-echo "Running command on all nodes..."
-sudo pdsh -R ssh -w ^$HOSTS_FILE -l $USER -f $PARALLEL "$REMOTE_COMMAND"
-
-if [ $? -eq 0 ]; then
-	echo "Command executed successfully on all nodes."
-else
-	echo "Failed to execute command on some nodes."
-fi
+run_limit_all_remote 2 "$@"

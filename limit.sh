@@ -1,21 +1,22 @@
 #!/bin/bash
 
-# 检查enp6s0f0是否存在且处于UP状态
-if ip link show enp6s0f0 &> /dev/null && \
-   ip link show enp6s0f0 | grep -q 'state UP'
-then
-    wondershaper -a enp6s0f0 -d 1048576 -u 1048576
-    exit 0
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/limit_common.sh"
+
+INTER_GB="${1:-}"
+if [ -z "$INTER_GB" ]; then
+    echo "Usage: $0 <inter_rack_gb> [intra]" >&2
+    echo "  inter-rack bandwidth: 0.5 | 1 | 2 | 5 | 10 (Gb/s)" >&2
+    echo "  default: datanode unlimited, proxy inter-rack only" >&2
+    echo "  add 'intra' to also limit proxy<->datanode at ${INTRA_RACK_GB} Gb/s" >&2
+    exit 1
 fi
 
-# 检查enp6s0f1是否存在且处于UP状态
-if ip link show enp6s0f1 &> /dev/null && \
-   ip link show enp6s0f1 | grep -q 'state UP'
-then
-    wondershaper -a enp6s0f1 -d 1048576 -u 1048576
-    exit 0
-fi
+shift
+parse_limit_datanode_mode "$@"
 
-# 如果都不满足则报错
-echo "Error: No active interface found!" >&2
-exit 1
+INTER_KBPS=$(gb_to_kbps "$INTER_GB")
+INTRA_KBPS=$(gb_to_kbps "$INTRA_RACK_GB")
+
+apply_bandwidth_limits "$INTER_KBPS" "$INTRA_KBPS" "$SCRIPT_DIR" "$LIMIT_DATANODE"
