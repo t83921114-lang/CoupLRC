@@ -57,9 +57,10 @@ get_ini() {
 
 detect_iface() {
     local hint_ip="$1"
+    local ip_prefix="${2:-}"
     local candidate=""
 
-    if [ -n "$hint_ip" ]; then
+    if [ -n "$hint_ip" ] && [ "$hint_ip" != "127.0.0.1" ] && [ "$hint_ip" != "0.0.0.0" ]; then
         candidate=$(ip route get "$hint_ip" 2>/dev/null | awk '
             / dev / {
                 for (i = 1; i <= NF; i++) {
@@ -72,10 +73,12 @@ detect_iface() {
         fi
     fi
 
-    candidate=$(ip -o -4 addr show scope global 2>/dev/null | awk '$4 ~ /^10\.10\.1\./ { print $2; exit }')
-    if [ -n "$candidate" ] && ip link show "$candidate" 2>/dev/null | grep -q 'state UP'; then
-        echo "$candidate"
-        return 0
+    if [ -n "$ip_prefix" ]; then
+        candidate=$(ip -o -4 addr show scope global 2>/dev/null | awk -v p="$ip_prefix" '$4 ~ "^" p { print $2; exit }')
+        if [ -n "$candidate" ] && ip link show "$candidate" 2>/dev/null | grep -q 'state UP'; then
+            echo "$candidate"
+            return 0
+        fi
     fi
 
     candidate=$(ip route show default 2>/dev/null | awk '/default/ { print $5; exit }')
@@ -94,53 +97,149 @@ detect_iface() {
     return 1
 }
 
-get_my_cluster_ip() {
-    ip -o -4 addr show scope global 2>/dev/null | awk '{ print $4 }' | cut -d/ -f1 | awk '/^10\.10\.1\.[0-9]+$/ { print; exit }'
+parse_cluster_ip_base() {
+    local first_ip="$1"
+
+    if [ "$first_ip" = "127.0.0.1" ]; then
+        CLUSTER_USE_LOCALHOST=1
+        CLUSTER_IP_PREFIX=""
+        CLUSTER_IP_BASE=0
+        return 0
+    fi
+
+    CLUSTER_USE_LOCALHOST=0
+    CLUSTER_IP_PREFIX="${first_ip%.*}."
+    CLUSTER_IP_BASE="${first_ip##*.}"
+    return 0
 }
 
-ip_last_octet() {
-    echo "$1" | awk -F. '{ print $4 }'
+cluster_ip_at() {
+    echo "${CLUSTER_IP_PREFIX}$((CLUSTER_IP_BASE + $1))"
 }
 
-make_cluster_ip() {
-    echo "10.10.1.$1"
-}
-
-classify_node() {
-    local my_ip="$1"
-    local config_file="$2"
-    local cluster_num first_proxy_ip dn_per
-    local first_octet c proxy_oct proxy_ip d dn_oct dn_ip
+read_cluster_layout() {
+    local config_file="$1"
+    local cluster_num first_proxy_ip dn_per ip_mode
 
     cluster_num=$(get_ini cluster cluster_num "$config_file")
     first_proxy_ip=$(get_ini cluster first_proxy_ip "$config_file")
     dn_per=$(get_ini cluster datanode_per_cluster "$config_file")
+    ip_mode=$(get_ini cluster ip_mode "$config_file")
+    [ -n "$ip_mode" ] || ip_mode="distributed"
 
     if [ -z "$cluster_num" ] || [ -z "$first_proxy_ip" ] || [ -z "$dn_per" ]; then
         echo "Failed to read cluster config: $config_file" >&2
         return 1
     fi
 
-    first_octet=$(ip_last_octet "$first_proxy_ip")
+    parse_cluster_ip_base "$first_proxy_ip" || return 1
+    export CLUSTER_NUM="$cluster_num"
+    export DN_PER="$dn_per"
+    export IP_MODE="$ip_mode"
+    return 0
+}
+
+enumerate_cluster_ips() {
+    local config_file="$1"
+    local c d ip_idx=0 proxy_ip dn_ip
+
+    read_cluster_layout "$config_file" || return 1
+
+    for ((c = 0; c < CLUSTER_NUM; c++)); do
+        if [ "$CLUSTER_USE_LOCALHOST" = 1 ]; then
+            proxy_ip="127.0.0.1"
+        elif [ "$IP_MODE" = "port_simulated" ]; then
+            proxy_ip=$(cluster_ip_at "$c")
+        else
+            proxy_ip=$(cluster_ip_at "$ip_idx")
+            ip_idx=$((ip_idx + 1))
+        fi
+        echo "$proxy_ip"
+
+        for ((d = 0; d < DN_PER; d++)); do
+            if [ "$CLUSTER_USE_LOCALHOST" = 1 ] || [ "$IP_MODE" = "port_simulated" ]; then
+                dn_ip="$proxy_ip"
+            else
+                dn_ip=$(cluster_ip_at "$ip_idx")
+                ip_idx=$((ip_idx + 1))
+            fi
+            if [ "$CLUSTER_USE_LOCALHOST" = 1 ] || [ "$IP_MODE" = "port_simulated" ]; then
+                continue
+            fi
+            echo "$dn_ip"
+        done
+    done
+}
+
+get_my_cluster_ip() {
+    local config_file="$1"
+    local cluster_ip local_ip
+
+    if ! read_cluster_layout "$config_file"; then
+        return 1
+    fi
+
+    if [ "$CLUSTER_USE_LOCALHOST" = 1 ]; then
+        echo "127.0.0.1"
+        return 0
+    fi
+
+    while IFS= read -r cluster_ip; do
+        [ -n "$cluster_ip" ] || continue
+        while IFS= read -r local_ip; do
+            if [ "$cluster_ip" = "$local_ip" ]; then
+                echo "$cluster_ip"
+                return 0
+            fi
+        done < <(ip -o -4 addr show scope global 2>/dev/null | awk '{ print $4 }' | cut -d/ -f1)
+    done < <(enumerate_cluster_ips "$config_file")
+
+    return 1
+}
+
+classify_node() {
+    local my_ip="$1"
+    local config_file="$2"
+    local c d ip_idx=0 proxy_ip dn_ip
+
+    if ! read_cluster_layout "$config_file"; then
+        return 1
+    fi
+
     NODE_ROLE=""
     INTRA_IPS=()
     INTER_IPS=()
 
-    for ((c = 0; c < cluster_num; c++)); do
-        proxy_oct=$((first_octet + 4 * c))
-        proxy_ip=$(make_cluster_ip "$proxy_oct")
+    for ((c = 0; c < CLUSTER_NUM; c++)); do
+        if [ "$CLUSTER_USE_LOCALHOST" = 1 ]; then
+            proxy_ip="127.0.0.1"
+        elif [ "$IP_MODE" = "port_simulated" ]; then
+            proxy_ip=$(cluster_ip_at "$c")
+        else
+            proxy_ip=$(cluster_ip_at "$ip_idx")
+            ip_idx=$((ip_idx + 1))
+        fi
 
         if [ "$my_ip" = "$proxy_ip" ]; then
             NODE_ROLE=proxy
-            for ((d = 1; d <= dn_per; d++)); do
-                INTRA_IPS+=("$(make_cluster_ip $((proxy_oct + d)))")
+            for ((d = 0; d < DN_PER; d++)); do
+                if [ "$CLUSTER_USE_LOCALHOST" = 1 ] || [ "$IP_MODE" = "port_simulated" ]; then
+                    INTRA_IPS+=("$proxy_ip")
+                else
+                    INTRA_IPS+=("$(cluster_ip_at "$ip_idx")")
+                    ip_idx=$((ip_idx + 1))
+                fi
             done
             break
         fi
 
-        for ((d = 1; d <= dn_per; d++)); do
-            dn_oct=$((proxy_oct + d))
-            dn_ip=$(make_cluster_ip "$dn_oct")
+        for ((d = 0; d < DN_PER; d++)); do
+            if [ "$CLUSTER_USE_LOCALHOST" = 1 ] || [ "$IP_MODE" = "port_simulated" ]; then
+                dn_ip="$proxy_ip"
+            else
+                dn_ip=$(cluster_ip_at "$ip_idx")
+                ip_idx=$((ip_idx + 1))
+            fi
             if [ "$my_ip" = "$dn_ip" ]; then
                 NODE_ROLE=datanode
                 INTRA_IPS=("$proxy_ip")
@@ -150,9 +249,16 @@ classify_node() {
     done
 
     if [ "$NODE_ROLE" = proxy ]; then
-        for ((c = 0; c < cluster_num; c++)); do
-            proxy_oct=$((first_octet + 4 * c))
-            proxy_ip=$(make_cluster_ip "$proxy_oct")
+        ip_idx=0
+        for ((c = 0; c < CLUSTER_NUM; c++)); do
+            if [ "$CLUSTER_USE_LOCALHOST" = 1 ]; then
+                proxy_ip="127.0.0.1"
+            elif [ "$IP_MODE" = "port_simulated" ]; then
+                proxy_ip=$(cluster_ip_at "$c")
+            else
+                proxy_ip=$(cluster_ip_at "$ip_idx")
+                ip_idx=$((ip_idx + 1 + DN_PER))
+            fi
             if [ "$proxy_ip" != "$my_ip" ]; then
                 INTER_IPS+=("$proxy_ip")
             fi
@@ -270,7 +376,10 @@ apply_bandwidth_limits() {
     fi
 
     coordinator_ip=$(get_ini cluster coordinator_ip "$config_file")
-    my_ip=$(get_my_cluster_ip)
+    first_proxy_ip=$(get_ini cluster first_proxy_ip "$config_file")
+    parse_cluster_ip_base "$first_proxy_ip"
+
+    my_ip=$(get_my_cluster_ip "$config_file") || true
     if [ -z "$my_ip" ]; then
         echo "skip | no cluster IP"
         return 0
@@ -281,7 +390,7 @@ apply_bandwidth_limits() {
         return 0
     fi
 
-    iface=$(detect_iface "$coordinator_ip") || {
+    iface=$(detect_iface "$coordinator_ip" "$CLUSTER_IP_PREFIX") || {
         echo "fail | no active interface" >&2
         return 1
     }

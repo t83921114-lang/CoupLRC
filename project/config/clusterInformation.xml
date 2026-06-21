@@ -1,13 +1,13 @@
 <?xml version='1.0' encoding='utf-8'?>
 <clusters>
-	<cluster id="0" proxy="10.10.1.3:50405">
+	<cluster id="0" proxy="172.16.0.234:50405">
 		<datanodes>
-			<datanode uri="10.10.1.4:17600" />
+			<datanode uri="172.16.0.235:17600" />
 			<datanode uri="10.10.1.5:17601" />
 			<datanode uri="10.10.1.6:17602" />
 		</datanodes>
 	</cluster>
-	<cluster id="1" proxy="10.10.1.7:50406">
+	<cluster id="1" proxy="172.16.0.236:50406">
 		<datanodes>
 			<datanode uri="10.10.1.8:17603" />
 			<datanode uri="10.10.1.9:17604" />
