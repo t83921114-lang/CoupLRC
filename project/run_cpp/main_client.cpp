@@ -212,7 +212,8 @@ int main(int argc, char **argv)
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
     
-    int stripe_num = 1;
+    int stripe_num = 5;
+/*
     size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
     std::cout << "Starting set stripe operation" << std::endl;
     std::chrono::high_resolution_clock::time_point set_start = std::chrono::high_resolution_clock::now();
@@ -229,71 +230,73 @@ int main(int argc, char **argv)
 
     std::uniform_int_distribution<int> dist_500(0, k*stripe_num - 500);
     std::uniform_real_distribution<double> dist_double(0.0, 1.0);
-    
+*/
     
     //for read test
-    
-    // std::cout << "Normal read test start" << std::endl;
-    // std::vector<std::chrono::duration<double>> read_time_spans;
-    // for(int i = 0; i < 5; i++){
-    //     size_t data_size;
-    //     int id = i;
-    //     std::string key = std::to_string(id);
-    //     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    //     std::shared_ptr<char[]> data = client.get(key, data_size);
-    //     if(!data){
-    //         std::cout << "Get operation failed" << std::endl;
-    //         continue;
-    //     }
-    //     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    //     std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    //     read_time_spans.push_back(time_span);
-    //     //std::cout << "get time: " << time_span.count() << std::endl;
-    // }
-    // std::chrono::duration<double> read_total_time_span = std::accumulate(read_time_spans.begin(), read_time_spans.end(), std::chrono::duration<double>(0));
-    // std::cout << "Total time: " << read_total_time_span.count() << std::endl;
-    // std::cout << "Average time: " << read_total_time_span.count() / read_time_spans.size() << std::endl;
-    // std::cout << "Throughput (stripes/s): " << read_time_spans.size() / read_total_time_span.count() << std::endl;
-    // std::cout << "Speed: " << static_cast<size_t>(block_size) * k / (read_total_time_span.count() / read_time_spans.size()) << " MB/s" << std::endl;
-    // std::chrono::duration<double> read_max_time_span = *std::max_element(read_time_spans.begin(), read_time_spans.end());
-    // std::chrono::duration<double> read_min_time_span = *std::min_element(read_time_spans.begin(), read_time_spans.end());
-    // std::cout << "Max speed: " << static_cast<size_t>(block_size) * k / read_min_time_span.count() << " MB/s" << std::endl;
-    // std::cout << "Min speed: " << static_cast<size_t>(block_size) * k / read_max_time_span.count() << " MB/s" << std::endl;
-    // std::cout << "Normal read test end" << std::endl;
-    // std::cout << std::endl;
+/*  
+    std::cout << "Normal read test start" << std::endl;
+    std::vector<std::chrono::duration<double>> read_time_spans;
+    for(int i = 0; i < 5; i++){
+        size_t data_size;
+        int id = i;
+        std::string key = std::to_string(id);
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+        std::shared_ptr<char[]> data = client.get(key, data_size);
+        if(!data){
+            std::cout << "Get operation failed" << std::endl;
+            continue;
+        }
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        read_time_spans.push_back(time_span);
+        //std::cout << "get time: " << time_span.count() << std::endl;
+    }
+    std::chrono::duration<double> read_total_time_span = std::accumulate(read_time_spans.begin(), read_time_spans.end(), std::chrono::duration<double>(0));
+    std::cout << "Total time: " << read_total_time_span.count() << std::endl;
+    std::cout << "Average time: " << read_total_time_span.count() / read_time_spans.size() << std::endl;
+    std::cout << "Throughput (stripes/s): " << read_time_spans.size() / read_total_time_span.count() << std::endl;
+    std::cout << "Speed: " << static_cast<size_t>(block_size) * k / (read_total_time_span.count() / read_time_spans.size()) << " MB/s" << std::endl;
+    std::chrono::duration<double> read_max_time_span = *std::max_element(read_time_spans.begin(), read_time_spans.end());
+    std::chrono::duration<double> read_min_time_span = *std::min_element(read_time_spans.begin(), read_time_spans.end());
+    std::cout << "Max speed: " << static_cast<size_t>(block_size) * k / read_min_time_span.count() << " MB/s" << std::endl;
+    std::cout << "Min speed: " << static_cast<size_t>(block_size) * k / read_max_time_span.count() << " MB/s" << std::endl;
+    std::cout << "Normal read test end" << std::endl;
+    std::cout << std::endl;
+*/
 
+/*
+    //for degraded read test
     
-    // //for degraded read test
-    
-    // std::vector<std::chrono::duration<double>> degraded_read_time_spans;
-    // std::cout << "Degraded read test start" << std::endl;
-    // for(int i = 0; i < k; i++){
-    //     size_t data_size;
-    //     int id = i;
-    //     std::string key = std::to_string(id);
-    //     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    //     std::shared_ptr<char[]> data = client.get_degraded_read_block(0, i);
-    //     if(!data){
-    //         std::cout << "Degraded read operation failed" << std::endl;
-    //         continue;
-    //     }
-    //     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    //     std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    //     degraded_read_time_spans.push_back(time_span);
-    //     //std::cout << "get time: " << time_span.count() << std::endl;
-    // }
-    // std::chrono::duration<double> degraded_read_total_time_span = std::accumulate(degraded_read_time_spans.begin(), degraded_read_time_spans.end(), std::chrono::duration<double>(0));
-    // std::cout << "Average time: " << degraded_read_total_time_span.count() / degraded_read_time_spans.size() << std::endl;
-    // std::chrono::duration<double> degraded_read_max_time_span = *std::max_element(degraded_read_time_spans.begin(), degraded_read_time_spans.end());
-    // std::chrono::duration<double> degraded_read_min_time_span = *std::min_element(degraded_read_time_spans.begin(), degraded_read_time_spans.end());
-    // std::cout << "Max time: "<< degraded_read_max_time_span.count() << std::endl;
-    // std::cout << "Min time: "<< degraded_read_min_time_span.count() << std::endl;
-    // std::cout << "Throughput (blocks/s): " << degraded_read_time_spans.size() / degraded_read_total_time_span.count() << std::endl;
-    // std::cout << "Speed: " << static_cast<size_t>(block_size) / (degraded_read_total_time_span.count() / degraded_read_time_spans.size()) << " MB/s" << std::endl;
-    // std::cout << "Max speed: " << static_cast<size_t>(block_size) / degraded_read_min_time_span.count() << " MB/s" << std::endl;
-    // std::cout << "Min speed: " << static_cast<size_t>(block_size) / degraded_read_max_time_span.count() << " MB/s" << std::endl;
-    // std::cout << "Degraded read test end" << std::endl;
-    // std::cout << std::endl;
+    std::vector<std::chrono::duration<double>> degraded_read_time_spans;
+    std::cout << "Degraded read test start" << std::endl;
+    for(int i = 0; i < k; i++){
+        size_t data_size;
+        int id = i;
+        std::string key = std::to_string(id);
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+        std::shared_ptr<char[]> data = client.get_degraded_read_block(0, i);
+        if(!data){
+            std::cout << "Degraded read operation failed" << std::endl;
+            continue;
+        }
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        degraded_read_time_spans.push_back(time_span);
+        //std::cout << "get time: " << time_span.count() << std::endl;
+    }
+    std::chrono::duration<double> degraded_read_total_time_span = std::accumulate(degraded_read_time_spans.begin(), degraded_read_time_spans.end(), std::chrono::duration<double>(0));
+    std::cout << "Average time: " << degraded_read_total_time_span.count() / degraded_read_time_spans.size() << std::endl;
+    std::chrono::duration<double> degraded_read_max_time_span = *std::max_element(degraded_read_time_spans.begin(), degraded_read_time_spans.end());
+    std::chrono::duration<double> degraded_read_min_time_span = *std::min_element(degraded_read_time_spans.begin(), degraded_read_time_spans.end());
+    std::cout << "Max time: "<< degraded_read_max_time_span.count() << std::endl;
+    std::cout << "Min time: "<< degraded_read_min_time_span.count() << std::endl;
+    std::cout << "Throughput (blocks/s): " << degraded_read_time_spans.size() / degraded_read_total_time_span.count() << std::endl;
+    std::cout << "Speed: " << static_cast<size_t>(block_size) / (degraded_read_total_time_span.count() / degraded_read_time_spans.size()) << " MB/s" << std::endl;
+    std::cout << "Max speed: " << static_cast<size_t>(block_size) / degraded_read_min_time_span.count() << " MB/s" << std::endl;
+    std::cout << "Min speed: " << static_cast<size_t>(block_size) / degraded_read_max_time_span.count() << " MB/s" << std::endl;
+    std::cout << "Degraded read test end" << std::endl;
+    std::cout << std::endl;
+*/
 
     /*
     //for single block recovery
@@ -369,7 +372,7 @@ int main(int argc, char **argv)
     }
 */
 
-
+/*  
     // 打点 breakdown test for two block recovery (test blocks 0 and 1)
     {
         const double recovered_mb = 2.0 * block_size;
@@ -422,7 +425,7 @@ int main(int argc, char **argv)
         std::cout << "Two block recovery breakdown test end" << std::endl;
         std::cout << std::endl;
     }
-
+*/
 
 /*
 // Multi block recovery: first cluster (rack) fails under current layout + placement
@@ -912,5 +915,77 @@ int main(int argc, char **argv)
     // std::cout << std::accumulate(decode_time_spans.begin(), decode_time_spans.end(), 0.0) / decode_time_spans.size() << std::endl;
     // std::cout << "Decode test end" << std::endl;
     // std::cout << std::endl;
+
+/*
+    // 写性能测试，Normal write
+    // 使用说明：测写性能时，把文件前面那段“写条带”的循环（client.set() 预写）注释掉，
+    // 只跑这里即可——此处会重新写入 stripe_num 条 stripe 并统计写时延 / 吞吐。
+    // 每次 client.set() 写入一整条 stripe：coordinator 调度 + client 端 EC 编码 + 并行 append 到各 proxy。
+    {
+        const int warmup_num = 1; // 预热条数，不计入统计（预热 gRPC 建连 + 各 proxy/datanode 首次连接 + 缓存）
+        const double written_mb_per_stripe = block_size * static_cast<double>(k); // 单条 stripe 的有效数据量(MB)
+        std::vector<std::chrono::duration<double>> write_time_spans;
+        write_time_spans.reserve(stripe_num);
+
+        std::cout << "Normal write test start" << std::endl;
+        for (int i = 0; i < warmup_num + stripe_num; i++)
+        {
+            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+            bool ok = client.set();
+            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+            if (!ok)
+            {
+                std::cout << "[" << i << "th] Normal write failed" << std::endl;
+                continue;
+            }
+            if (i < warmup_num)
+            {
+                std::cout << "[warmup " << i << "] Normal write done (excluded from stats)" << std::endl;
+                continue;
+            }
+            std::chrono::duration<double> time_span =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            write_time_spans.push_back(time_span);
+            if (time_span.count() > 0)
+                std::cout << "[" << (i - warmup_num) << "th] Normal write throughput: "
+                          << (written_mb_per_stripe / time_span.count()) << " MB/s" << std::endl;
+        }
+
+        if (write_time_spans.empty())
+        {
+            std::cout << "Normal write test: no successful samples" << std::endl;
+        }
+        else
+        {
+            std::chrono::duration<double> write_total_time_span =
+                std::accumulate(write_time_spans.begin(), write_time_spans.end(),
+                                std::chrono::duration<double>(0));
+            std::chrono::duration<double> write_max_time_span =
+                *std::max_element(write_time_spans.begin(), write_time_spans.end());
+            std::chrono::duration<double> write_min_time_span =
+                *std::min_element(write_time_spans.begin(), write_time_spans.end());
+            const size_t sample_num = write_time_spans.size();
+
+            std::cout << "Total write time: " << write_total_time_span.count() << std::endl;
+            std::cout << "Average write time: "
+                      << write_total_time_span.count() / static_cast<double>(sample_num) << std::endl;
+            std::cout << "Max write time: " << write_max_time_span.count() << std::endl;
+            std::cout << "Min write time: " << write_min_time_span.count() << std::endl;
+            std::cout << "Throughput: "
+                      << static_cast<double>(sample_num) / write_total_time_span.count()
+                      << " stripes/s" << std::endl;
+            // 聚合写带宽：所有成功 stripe 的有效数据量 / 总耗时
+            std::cout << "Aggregate speed: "
+                      << (static_cast<double>(sample_num) * written_mb_per_stripe /
+                          write_total_time_span.count())
+                      << " MB/s" << std::endl;
+            // 单条 stripe 视角的 平均/最大/最小 写带宽
+            print_throughput_summary("Normal write", write_time_spans, written_mb_per_stripe);
+        }
+        std::cout << "Normal write test end" << std::endl;
+        std::cout << std::endl;
+    }
+*/
+
     return 0;
 }

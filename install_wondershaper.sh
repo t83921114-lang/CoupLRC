@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOSTS_FILE="${SCRIPT_DIR}/proxy_hosts"
+HOSTS_FILE="${SCRIPT_DIR}/hosts"
 
 USER="root"
 
