@@ -1,7 +1,7 @@
 #!/bin/bash
 # Shared helpers for rack-aware bandwidth limiting (tc + IFB).
 
-INTRA_RACK_GB=10
+INTRA_RACK_GB=12
 IFB_DEV=ifb0
 
 gb_to_kbps() {
@@ -11,8 +11,9 @@ gb_to_kbps() {
         2)   echo 2097152 ;;
         5)   echo 5242880 ;;
         10)  echo 10485760 ;;
+        12)  echo 12582912 ;;
         *)
-            echo "Unsupported bandwidth: ${1} Gb (allowed: 0.5, 1, 2, 5, 10)" >&2
+            echo "Unsupported bandwidth: ${1} Gb (allowed: 0.5, 1, 2, 5, 10, 12)" >&2
             return 1
             ;;
     esac
@@ -29,6 +30,7 @@ kbps_to_rate_label() {
         2097152)  echo "2Gb/s" ;;
         5242880)  echo "5Gb/s" ;;
         10485760) echo "10Gb/s" ;;
+        12582912) echo "12Gb/s" ;;
         *)        echo "${1}kbit/s" ;;
     esac
 }
@@ -303,7 +305,7 @@ clear_bandwidth_limits() {
 }
 
 parse_limit_datanode_mode() {
-    # 1 (default) = proxy<->datanode 机架内固定 10Gb（HTB egress）
+    # 1 (default) = proxy<->datanode 机架内固定 12Gb（HTB egress）
     # 0 = 关闭机架内限速（datanode 不限速，proxy 仅机架间限速）
     LIMIT_DATANODE=1
     local arg
@@ -458,7 +460,7 @@ apply_bandwidth_limits() {
 
     inter_rate=$(kbps_to_tc_rate "$inter_kbps")
     intra_rate=$(kbps_to_tc_rate "$intra_kbps")
-    max_rate="10gbit"
+    max_rate="$intra_rate"
     inter_label=$(kbps_to_rate_label "$inter_kbps")
     intra_label=$(kbps_to_rate_label "$intra_kbps")
 
