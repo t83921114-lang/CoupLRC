@@ -212,8 +212,8 @@ int main(int argc, char **argv)
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
     
-    int stripe_num = 5;
-/*
+    int stripe_num = 1;
+
     size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
     std::cout << "Starting set stripe operation" << std::endl;
     std::chrono::high_resolution_clock::time_point set_start = std::chrono::high_resolution_clock::now();
@@ -230,10 +230,10 @@ int main(int argc, char **argv)
 
     std::uniform_int_distribution<int> dist_500(0, k*stripe_num - 500);
     std::uniform_real_distribution<double> dist_double(0.0, 1.0);
-*/
+
     
     //for read test
-/*  
+ /*
     std::cout << "Normal read test start" << std::endl;
     std::vector<std::chrono::duration<double>> read_time_spans;
     for(int i = 0; i < 5; i++){
@@ -265,8 +265,7 @@ int main(int argc, char **argv)
 */
 
 /*
-    //for degraded read test
-    
+    //for degraded read test 
     std::vector<std::chrono::duration<double>> degraded_read_time_spans;
     std::cout << "Degraded read test start" << std::endl;
     for(int i = 0; i < k; i++){
@@ -348,7 +347,7 @@ int main(int argc, char **argv)
         std::cout << std::endl;
     }
 */
-/*
+
     // for two block recovery (test blocks 0 and 1)
     {
         const double recovered_mb = 2.0 * block_size;
@@ -370,9 +369,9 @@ int main(int argc, char **argv)
         std::cout << "Two block recovery test end" << std::endl;
         std::cout << std::endl;
     }
-*/
 
-/*  
+
+ /*
     // 打点 breakdown test for two block recovery (test blocks 0 and 1)
     {
         const double recovered_mb = 2.0 * block_size;
@@ -916,7 +915,7 @@ int main(int argc, char **argv)
     // std::cout << "Decode test end" << std::endl;
     // std::cout << std::endl;
 
-
+/*
     // 写性能测试，Normal write
     // 使用说明：测写性能时，把文件前面那段“写条带”的循环（client.set() 预写）注释掉，
     // 只跑这里即可——此处会重新写入 stripe_num 条 stripe 并统计写时延 / 吞吐。
@@ -985,7 +984,7 @@ int main(int argc, char **argv)
         std::cout << "Normal write test end" << std::endl;
         std::cout << std::endl;
     }
-
+*/
 
     return 0;
 }

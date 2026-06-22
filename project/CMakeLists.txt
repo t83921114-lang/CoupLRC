@@ -249,3 +249,14 @@ target_link_libraries(encode_benchmark
     -lJerasure
     -lgf_complete
 )
+
+
+# Two-node ASIO TCP write bandwidth microbenchmark (no gRPC / cluster)
+add_executable(asio_write_bench
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/asio_write_benchmark.cpp
+)
+target_include_directories(asio_write_bench PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/asio/include
+)
+target_compile_definitions(asio_write_bench PRIVATE ASIO_STANDALONE)
+target_link_libraries(asio_write_bench -lpthread)

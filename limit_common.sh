@@ -1,5 +1,9 @@
 #!/bin/bash
 # Shared helpers for rack-aware bandwidth limiting (tc + IFB).
+# Egress (root htb on the physical iface) shapes outbound traffic by dst IP.
+# Ingress (ifb0 via mirred redirect) shapes inbound traffic by src IP.
+# Result: both directions are capped -- proxy<->proxy at inter-rack rate,
+# proxy<->datanode at intra-rack rate.
 
 INTRA_RACK_GB=10
 IFB_DEV=ifb0
@@ -379,7 +383,7 @@ clear_bandwidth_limits() {
 }
 
 parse_limit_datanode_mode() {
-    # 1 (default) = proxy<->datanode 机架内固定 10Gb（HTB egress）
+    # 1 (default) = proxy<->datanode 机架内固定 10Gb（HTB egress+ingress）
     # 0 = 关闭机架内限速（datanode 不限速，proxy 仅机架间限速）
     LIMIT_DATANODE=1
     local arg
@@ -424,6 +428,10 @@ add_ip_filters() {
     done
 }
 
+# ---------------------------------------------------------------------------
+# Egress shaping (outbound, on the physical iface, classified by dst IP).
+# ---------------------------------------------------------------------------
+
 apply_proxy_inter_egress_limits() {
     local iface="$1"
     local inter_rate="$2"
@@ -449,6 +457,7 @@ apply_proxy_egress_limits() {
     local -a inter_ips=()
     local -a intra_ips=()
     local section=inter
+    local ip
 
     for ip in "$@"; do
         if [ "$ip" = "--" ]; then
@@ -489,6 +498,90 @@ apply_datanode_intra_egress_limits() {
 
     if [ "$#" -gt 0 ]; then
         add_ip_filters "$iface" "1:0" dst 1:20 2 "$@" || return 1
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Ingress shaping (inbound). The physical iface ingress is redirected to IFB
+# via mirred; HTB on the IFB device classifies by src IP (the remote peer).
+# ---------------------------------------------------------------------------
+
+setup_ingress_redirect() {
+    local iface="$1"
+
+    ensure_ifb || return 1
+    tc qdisc del dev "$IFB_DEV" root 2>/dev/null || true
+    tc qdisc add dev "$iface" handle ffff: ingress || return 1
+    tc filter add dev "$iface" parent ffff: protocol ip u32 \
+        match u32 0 0 action mirred egress redirect dev "$IFB_DEV" || return 1
+}
+
+apply_proxy_inter_ingress_limits() {
+    local ifb="$1"
+    local inter_rate="$2"
+    local max_rate="$3"
+    shift 3
+
+    tc qdisc add dev "$ifb" root handle 1: htb default 30
+    tc class add dev "$ifb" parent 1: classid 1:1 htb rate "$max_rate" ceil "$max_rate"
+    tc class add dev "$ifb" parent 1:1 classid 1:10 htb rate "$inter_rate" ceil "$inter_rate" prio 1
+    tc class add dev "$ifb" parent 1:1 classid 1:30 htb rate "$max_rate" ceil "$max_rate" prio 3
+
+    if [ "$#" -gt 0 ]; then
+        add_ip_filters "$ifb" "1:0" src 1:10 1 "$@" || return 1
+    fi
+}
+
+apply_proxy_ingress_limits() {
+    local ifb="$1"
+    local inter_rate="$2"
+    local intra_rate="$3"
+    local max_rate="$4"
+    shift 4
+    local -a inter_ips=()
+    local -a intra_ips=()
+    local section=inter
+    local ip
+
+    for ip in "$@"; do
+        if [ "$ip" = "--" ]; then
+            section=intra
+            continue
+        fi
+        if [ "$section" = inter ]; then
+            inter_ips+=("$ip")
+        else
+            intra_ips+=("$ip")
+        fi
+    done
+
+    tc qdisc add dev "$ifb" root handle 1: htb default 30
+    tc class add dev "$ifb" parent 1: classid 1:1 htb rate "$max_rate" ceil "$max_rate"
+    tc class add dev "$ifb" parent 1:1 classid 1:10 htb rate "$inter_rate" ceil "$inter_rate" prio 1
+    tc class add dev "$ifb" parent 1:1 classid 1:20 htb rate "$intra_rate" ceil "$intra_rate" prio 2
+    tc class add dev "$ifb" parent 1:1 classid 1:30 htb rate "$max_rate" ceil "$max_rate" prio 3
+
+    if [ "${#inter_ips[@]}" -gt 0 ]; then
+        add_ip_filters "$ifb" "1:0" src 1:10 1 "${inter_ips[@]}" || return 1
+    fi
+    if [ "${#intra_ips[@]}" -gt 0 ]; then
+        add_ip_filters "$ifb" "1:0" src 1:20 2 "${intra_ips[@]}" || return 1
+    fi
+}
+
+apply_datanode_ingress_limits() {
+    local ifb="$1"
+    local intra_rate="$2"
+    local max_rate="$3"
+    shift 3
+
+    tc qdisc add dev "$ifb" root handle 1: htb default 30
+    tc class add dev "$ifb" parent 1: classid 1:1 htb rate "$max_rate" ceil "$max_rate"
+    tc class add dev "$ifb" parent 1:1 classid 1:20 htb rate "$intra_rate" ceil "$intra_rate" prio 2
+    tc class add dev "$ifb" parent 1:1 classid 1:30 htb rate "$max_rate" ceil "$max_rate" prio 3
+
+    if [ "$#" -gt 0 ]; then
+        add_ip_filters "$ifb" "1:0" src 1:20 2 "$@" || return 1
     fi
 }
 
@@ -541,32 +634,57 @@ apply_bandwidth_limits() {
     clear_bandwidth_limits "$iface" 1
 
     if [ "$NODE_ROLE" = proxy ] && [ "$limit_datanode" -eq 0 ]; then
-        # Legacy mode: proxy 仅机架间限速，机架内不限速。
+        # Legacy mode: proxy 仅机架间限速（出+入），机架内不限速。
         apply_proxy_inter_egress_limits "$iface" "$inter_rate" "$max_rate" "${INTER_IPS[@]}" || {
-            echo "fail | proxy | $iface | tc setup failed" >&2
+            echo "fail | proxy | $iface | tc egress setup failed" >&2
             return 1
         }
-        echo "ok | proxy | $iface | inter=${inter_label}(${#INTER_IPS[@]}) intra=unlimited"
+        setup_ingress_redirect "$iface" || {
+            echo "fail | proxy | $iface | tc ingress setup failed" >&2
+            return 1
+        }
+        apply_proxy_inter_ingress_limits "$IFB_DEV" "$inter_rate" "$max_rate" "${INTER_IPS[@]}" || {
+            echo "fail | proxy | $iface | tc ingress setup failed" >&2
+            return 1
+        }
+        echo "ok | proxy | $iface | inter=${inter_label}(${#INTER_IPS[@]}) intra=unlimited | egress+ingress"
         return 0
     fi
 
     if [ "$NODE_ROLE" = proxy ]; then
-        # Default: HTB egress — inter-rack -> other proxies, intra-rack -> local datanodes.
+        # Default: inter-rack -> other proxies, intra-rack -> local datanodes; both directions.
         apply_proxy_egress_limits "$iface" "$inter_rate" "$intra_rate" "$max_rate" \
             "${INTER_IPS[@]}" -- "${INTRA_IPS[@]}" || {
-            echo "fail | proxy | $iface | tc setup failed" >&2
+            echo "fail | proxy | $iface | tc egress setup failed" >&2
             return 1
         }
-        echo "ok | proxy | $iface | inter=${inter_label}(${#INTER_IPS[@]}) intra=${intra_label}(${#INTRA_IPS[@]})"
+        setup_ingress_redirect "$iface" || {
+            echo "fail | proxy | $iface | tc ingress setup failed" >&2
+            return 1
+        }
+        apply_proxy_ingress_limits "$IFB_DEV" "$inter_rate" "$intra_rate" "$max_rate" \
+            "${INTER_IPS[@]}" -- "${INTRA_IPS[@]}" || {
+            echo "fail | proxy | $iface | tc ingress setup failed" >&2
+            return 1
+        }
+        echo "ok | proxy | $iface | inter=${inter_label}(${#INTER_IPS[@]}) intra=${intra_label}(${#INTRA_IPS[@]}) | egress+ingress"
         return 0
     fi
 
-    # Datanode: HTB egress to local proxy only.
+    # Datanode: shape traffic to/from the local proxy (egress + ingress).
     apply_datanode_intra_egress_limits "$iface" "$intra_rate" "$max_rate" "${INTRA_IPS[@]}" || {
-        echo "fail | datanode | $iface | tc setup failed" >&2
+        echo "fail | datanode | $iface | tc egress setup failed" >&2
         return 1
     }
-    echo "ok | datanode | $iface | intra=${intra_label} -> ${INTRA_IPS[*]}"
+    setup_ingress_redirect "$iface" || {
+        echo "fail | datanode | $iface | tc ingress setup failed" >&2
+        return 1
+    }
+    apply_datanode_ingress_limits "$IFB_DEV" "$intra_rate" "$max_rate" "${INTRA_IPS[@]}" || {
+        echo "fail | datanode | $iface | tc ingress setup failed" >&2
+        return 1
+    }
+    echo "ok | datanode | $iface | intra=${intra_label} <-> ${INTRA_IPS[*]} | egress+ingress"
 }
 
 run_limit_all_remote() {
