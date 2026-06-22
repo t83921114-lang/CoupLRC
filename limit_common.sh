@@ -117,6 +117,53 @@ cluster_ip_at() {
     echo "${CLUSTER_IP_PREFIX}$((CLUSTER_IP_BASE + $1))"
 }
 
+resolve_node_hosts_file() {
+    local config_file="$1"
+    local rel repo_root
+
+    rel=$(get_ini cluster node_hosts_file "$config_file")
+    [ -n "$rel" ] || rel="node_hosts"
+    repo_root="$(cd "$(dirname "$config_file")/../.." && pwd)"
+    if [[ "$rel" = /* ]]; then
+        echo "$rel"
+    else
+        echo "$repo_root/$rel"
+    fi
+}
+
+load_node_hosts() {
+    local config_file="$1"
+    local hosts_path ip expected
+
+    NODE_HOSTS=()
+    hosts_path=$(resolve_node_hosts_file "$config_file")
+    if [ ! -f "$hosts_path" ]; then
+        echo "node_hosts not found: $hosts_path" >&2
+        return 1
+    fi
+
+    while IFS= read -r ip || [ -n "$ip" ]; do
+        ip="${ip%%#*}"
+        ip="${ip#"${ip%%[![:space:]]*}"}"
+        ip="${ip%"${ip##*[![:space:]]}"}"
+        [ -n "$ip" ] || continue
+        NODE_HOSTS+=("$ip")
+    done < "$hosts_path"
+
+    expected=$((CLUSTER_NUM * (1 + DN_PER)))
+    if [ "${#NODE_HOSTS[@]}" -ne "$expected" ]; then
+        echo "node_hosts count ${#NODE_HOSTS[@]} != expected $expected" >&2
+        return 1
+    fi
+
+    export NODE_HOSTS
+    return 0
+}
+
+node_host_at() {
+    echo "${NODE_HOSTS[$1]}"
+}
+
 read_cluster_layout() {
     local config_file="$1"
     local cluster_num first_proxy_ip dn_per ip_mode
@@ -144,6 +191,19 @@ enumerate_cluster_ips() {
     local c d ip_idx=0 proxy_ip dn_ip
 
     read_cluster_layout "$config_file" || return 1
+
+    if [ "$IP_MODE" = "hosts_list" ]; then
+        load_node_hosts "$config_file" || return 1
+        for ((c = 0; c < CLUSTER_NUM; c++)); do
+            echo "$(node_host_at "$ip_idx")"
+            ip_idx=$((ip_idx + 1))
+            for ((d = 0; d < DN_PER; d++)); do
+                echo "$(node_host_at "$ip_idx")"
+                ip_idx=$((ip_idx + 1))
+            done
+        done
+        return 0
+    fi
 
     for ((c = 0; c < CLUSTER_NUM; c++)); do
         if [ "$CLUSTER_USE_LOCALHOST" = 1 ]; then
@@ -206,6 +266,10 @@ classify_node() {
         return 1
     fi
 
+    if [ "$IP_MODE" = "hosts_list" ]; then
+        load_node_hosts "$config_file" || return 1
+    fi
+
     NODE_ROLE=""
     INTRA_IPS=()
     INTER_IPS=()
@@ -215,6 +279,9 @@ classify_node() {
             proxy_ip="127.0.0.1"
         elif [ "$IP_MODE" = "port_simulated" ]; then
             proxy_ip=$(cluster_ip_at "$c")
+        elif [ "$IP_MODE" = "hosts_list" ]; then
+            proxy_ip=$(node_host_at "$ip_idx")
+            ip_idx=$((ip_idx + 1))
         else
             proxy_ip=$(cluster_ip_at "$ip_idx")
             ip_idx=$((ip_idx + 1))
@@ -225,6 +292,9 @@ classify_node() {
             for ((d = 0; d < DN_PER; d++)); do
                 if [ "$CLUSTER_USE_LOCALHOST" = 1 ] || [ "$IP_MODE" = "port_simulated" ]; then
                     INTRA_IPS+=("$proxy_ip")
+                elif [ "$IP_MODE" = "hosts_list" ]; then
+                    INTRA_IPS+=("$(node_host_at "$ip_idx")")
+                    ip_idx=$((ip_idx + 1))
                 else
                     INTRA_IPS+=("$(cluster_ip_at "$ip_idx")")
                     ip_idx=$((ip_idx + 1))
@@ -236,6 +306,9 @@ classify_node() {
         for ((d = 0; d < DN_PER; d++)); do
             if [ "$CLUSTER_USE_LOCALHOST" = 1 ] || [ "$IP_MODE" = "port_simulated" ]; then
                 dn_ip="$proxy_ip"
+            elif [ "$IP_MODE" = "hosts_list" ]; then
+                dn_ip=$(node_host_at "$ip_idx")
+                ip_idx=$((ip_idx + 1))
             else
                 dn_ip=$(cluster_ip_at "$ip_idx")
                 ip_idx=$((ip_idx + 1))
@@ -255,6 +328,9 @@ classify_node() {
                 proxy_ip="127.0.0.1"
             elif [ "$IP_MODE" = "port_simulated" ]; then
                 proxy_ip=$(cluster_ip_at "$c")
+            elif [ "$IP_MODE" = "hosts_list" ]; then
+                proxy_ip=$(node_host_at "$ip_idx")
+                ip_idx=$((ip_idx + 1 + DN_PER))
             else
                 proxy_ip=$(cluster_ip_at "$ip_idx")
                 ip_idx=$((ip_idx + 1 + DN_PER))

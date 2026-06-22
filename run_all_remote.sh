@@ -70,6 +70,29 @@ fi
 
 BUILD="$REMOTE_REPO/project/cmake/build"
 
+NODE_HOSTS=()
+if [ "$IP_MODE" = "hosts_list" ]; then
+  NODE_HOSTS_FILE=$(get_ini cluster node_hosts_file)
+  [ -n "$NODE_HOSTS_FILE" ] || NODE_HOSTS_FILE="node_hosts"
+  [[ "$NODE_HOSTS_FILE" != /* ]] && NODE_HOSTS_FILE="$SCRIPT_DIR/$NODE_HOSTS_FILE"
+  if [ ! -f "$NODE_HOSTS_FILE" ]; then
+    echo "node_hosts not found: $NODE_HOSTS_FILE"
+    exit 1
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [ -n "$line" ] || continue
+    NODE_HOSTS+=("$line")
+  done < "$NODE_HOSTS_FILE"
+  expected=$((CLUSTER_NUM * (1 + DN_PER)))
+  if [ "${#NODE_HOSTS[@]}" -ne "$expected" ]; then
+    echo "node_hosts count ${#NODE_HOSTS[@]} != expected $expected"
+    exit 1
+  fi
+fi
+
 # 本机运行时只在最开始 kill 一次，避免每次循环都杀掉已启动的进程
 if [ "$USE_LOCALHOST" = 1 ]; then
   pkill -9 run_datanode 2>/dev/null || true
@@ -87,6 +110,9 @@ while [ "$c" -lt "$CLUSTER_NUM" ]; do
     PROXY_IP="127.0.0.1"
   elif [ "$IP_MODE" = "port_simulated" ]; then
     PROXY_IP="${PREFIX}$((FIRST_OCTET + c))"
+  elif [ "$IP_MODE" = "hosts_list" ]; then
+    PROXY_IP="${NODE_HOSTS[$ip_idx]}"
+    ip_idx=$((ip_idx + 1))
   else
     PROXY_IP="${PREFIX}$((FIRST_OCTET + ip_idx))"
     ip_idx=$((ip_idx + 1))
@@ -100,6 +126,9 @@ while [ "$c" -lt "$CLUSTER_NUM" ]; do
     DP=$((DN_PORT_START + c * DN_PER + d))
     if [ "$USE_LOCALHOST" = 1 ] || [ "$IP_MODE" = "port_simulated" ]; then
       DN_IP="$PROXY_IP"
+    elif [ "$IP_MODE" = "hosts_list" ]; then
+      DN_IP="${NODE_HOSTS[$ip_idx]}"
+      ip_idx=$((ip_idx + 1))
     else
       DN_IP="${PREFIX}$((FIRST_OCTET + ip_idx))"
       ip_idx=$((ip_idx + 1))

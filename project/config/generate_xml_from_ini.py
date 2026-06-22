@@ -25,6 +25,20 @@ def load_ini():
     return cfg
 
 
+def load_node_hosts(repo_root: Path, cfg) -> list[str]:
+    rel = cfg["cluster"].get("node_hosts_file", "node_hosts").strip()
+    hosts_path = Path(rel) if Path(rel).is_absolute() else repo_root / rel
+    if not hosts_path.exists():
+        print(f"Error: node_hosts not found: {hosts_path}", file=sys.stderr)
+        sys.exit(1)
+    ips = []
+    for line in hosts_path.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            ips.append(line)
+    return ips
+
+
 def compute_cluster_info(cfg):
     sect = cfg["cluster"]
     n = int(sect["cluster_num"])
@@ -32,7 +46,32 @@ def compute_cluster_info(cfg):
     first_ip = sect["first_proxy_ip"].strip()
     first_port = int(sect["first_proxy_port"])
     dn_start = int(sect["datanode_port_start"])
+    ip_mode = sect.get("ip_mode", "distributed").strip()
     use_localhost = first_ip == "127.0.0.1"
+    repo_root = CONFIG_DIR.parent.parent
+
+    if ip_mode == "hosts_list":
+        node_hosts = load_node_hosts(repo_root, cfg)
+        expected = n * (1 + dn_per)
+        if len(node_hosts) != expected:
+            print(
+                f"Error: node_hosts count {len(node_hosts)} != expected {expected}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        clusters = []
+        idx = 0
+        for c in range(n):
+            proxy_ip = node_hosts[idx]
+            idx += 1
+            proxy_port = first_port + c
+            datanodes = []
+            for d in range(dn_per):
+                datanodes.append(f"{node_hosts[idx]}:{dn_start + c * dn_per + d}")
+                idx += 1
+            clusters.append({"proxy": f"{proxy_ip}:{proxy_port}", "datanodes": datanodes})
+        return clusters, n, dn_per, sect.get("coordinator_ip", "0.0.0.0").strip()
+
     if use_localhost:
         prefix, first_octet = "", 0
     else:

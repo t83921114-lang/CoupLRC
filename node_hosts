@@ -1,6 +1,4 @@
-# All cluster machines (coordinator + client + 44 proxy/datanode nodes)
-172.16.0.1
-172.16.0.3
+# 11 clusters × (1 proxy + 3 datanode) = 44 nodes, sorted by last octet
 172.16.0.4
 172.16.0.5
 172.16.0.10

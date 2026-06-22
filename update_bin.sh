@@ -68,6 +68,29 @@ fi
 PREFIX="${FIRST_IP%.*}."
 FIRST_OCTET="${FIRST_IP##*.}"
 
+NODE_HOSTS=()
+if [ "$IP_MODE" = "hosts_list" ]; then
+  NODE_HOSTS_FILE="$(get_ini cluster node_hosts_file)"
+  [ -n "${NODE_HOSTS_FILE:-}" ] || NODE_HOSTS_FILE="node_hosts"
+  [[ "$NODE_HOSTS_FILE" != /* ]] && NODE_HOSTS_FILE="$SCRIPT_DIR/$NODE_HOSTS_FILE"
+  if [ ! -f "$NODE_HOSTS_FILE" ]; then
+    echo "node_hosts not found: $NODE_HOSTS_FILE"
+    exit 1
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [ -n "$line" ] || continue
+    NODE_HOSTS+=("$line")
+  done < "$NODE_HOSTS_FILE"
+  expected=$((CLUSTER_NUM * (1 + DN_PER)))
+  if [ "${#NODE_HOSTS[@]}" -ne "$expected" ]; then
+    echo "node_hosts count ${#NODE_HOSTS[@]} != expected $expected"
+    exit 1
+  fi
+fi
+
 # Infer endpoints exactly like generate_xml_from_ini.py / run_all_remote.sh
 PROXY_IPS=()
 DN_IPS=()
@@ -75,6 +98,9 @@ ip_idx=0
 for ((c=0; c<CLUSTER_NUM; c++)); do
   if [ "$IP_MODE" = "port_simulated" ]; then
     proxy_ip="${PREFIX}$((FIRST_OCTET + c))"
+  elif [ "$IP_MODE" = "hosts_list" ]; then
+    proxy_ip="${NODE_HOSTS[$ip_idx]}"
+    ip_idx=$((ip_idx + 1))
   else
     proxy_ip="${PREFIX}$((FIRST_OCTET + ip_idx))"
     ip_idx=$((ip_idx + 1))
@@ -83,6 +109,9 @@ for ((c=0; c<CLUSTER_NUM; c++)); do
   for ((d=0; d<DN_PER; d++)); do
     if [ "$IP_MODE" = "port_simulated" ]; then
       dn_ip="$proxy_ip"
+    elif [ "$IP_MODE" = "hosts_list" ]; then
+      dn_ip="${NODE_HOSTS[$ip_idx]}"
+      ip_idx=$((ip_idx + 1))
     else
       dn_ip="${PREFIX}$((FIRST_OCTET + ip_idx))"
       ip_idx=$((ip_idx + 1))
@@ -113,6 +142,7 @@ project/cmake/build/run_proxy
 project/config/cluster.ini
 project/config/clusterInformation.xml
 project/config/parameterConfiguration.xml
+node_hosts
 EOF
 
 cat >"$FILELIST_DN" <<'EOF'
@@ -120,6 +150,7 @@ project/cmake/build/run_datanode
 project/config/cluster.ini
 project/config/clusterInformation.xml
 project/config/parameterConfiguration.xml
+node_hosts
 EOF
 
 cat >"$FILELIST_COORD" <<'EOF'
@@ -127,6 +158,7 @@ project/cmake/build/run_coordinator
 project/config/cluster.ini
 project/config/clusterInformation.xml
 project/config/parameterConfiguration.xml
+node_hosts
 EOF
 
 sync_group() {
