@@ -6,10 +6,10 @@ source "$SCRIPT_DIR/limit_common.sh"
 
 INPUT_GB="${1:-}"
 if [ -z "$INPUT_GB" ]; then
-    echo "Usage: $0 <inter_rack_gb> [intra]" >&2
+    echo "Usage: $0 <inter_rack_gb> [no-intra]" >&2
     echo "  allowed inter-rack: 0.5, 1, 2, 5, 10" >&2
-    echo "  default: datanode unlimited, proxy inter-rack only" >&2
-    echo "  add 'intra' to also limit proxy<->datanode at 10Gb/s" >&2
+    echo "  default: intra-rack proxy<->datanode fixed at 10Gb/s (HTB egress)" >&2
+    echo "  add 'no-intra' to disable intra-rack limits (datanode unlimited)" >&2
     exit 1
 fi
 
