@@ -916,7 +916,7 @@ int main(int argc, char **argv)
     // std::cout << "Decode test end" << std::endl;
     // std::cout << std::endl;
 
-/*
+
     // 写性能测试，Normal write
     // 使用说明：测写性能时，把文件前面那段“写条带”的循环（client.set() 预写）注释掉，
     // 只跑这里即可——此处会重新写入 stripe_num 条 stripe 并统计写时延 / 吞吐。
@@ -985,7 +985,7 @@ int main(int argc, char **argv)
         std::cout << "Normal write test end" << std::endl;
         std::cout << std::endl;
     }
-*/
+
 
     return 0;
 }
