@@ -1,10 +1,11 @@
 #!/bin/bash
 
-HOSTS_FILE="proxy_hosts"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+HOSTS_FILE="${SCRIPT_DIR}/proxy_hosts"
 
 USER="root"
 
-REMOTE_COMMAND="cd /users/Fengming/UniLRC && sh run_proxy_datanode.sh"
+REMOTE_COMMAND="cd $SCRIPT_DIR && sh run_proxy_datanode.sh"
 
 PARALLEL=50
 
