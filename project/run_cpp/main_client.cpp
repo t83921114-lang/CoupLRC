@@ -108,6 +108,37 @@ void print_throughput_summary(const char *test_name,
     std::cout << "Min throughput: " << min_tp << " MB/s" << std::endl;
 }
 
+// Average/Max/Min recovery time over samples (seconds)
+void print_recovery_time_summary(const char *test_name,
+                                 const std::vector<std::chrono::duration<double>> &time_spans)
+{
+    if (time_spans.empty())
+    {
+        std::cout << test_name << ": no successful samples" << std::endl;
+        return;
+    }
+    std::vector<double> times;
+    times.reserve(time_spans.size());
+    for (const auto &t : time_spans)
+    {
+        if (t.count() <= 0)
+            continue;
+        times.push_back(t.count());
+    }
+    if (times.empty())
+    {
+        std::cout << test_name << ": no valid timing samples" << std::endl;
+        return;
+    }
+    const double avg = std::accumulate(times.begin(), times.end(), 0.0) /
+                       static_cast<double>(times.size());
+    const double max_t = *std::max_element(times.begin(), times.end());
+    const double min_t = *std::min_element(times.begin(), times.end());
+    std::cout << "Average recovery time: " << avg << " s" << std::endl;
+    std::cout << "Max recovery time: " << max_t << " s" << std::endl;
+    std::cout << "Min recovery time: " << min_t << " s" << std::endl;
+}
+
 void print_breakdown_summary(const char *test_name, double disk_read, double network, double decode,
                              double disk_write, double recovered_mb, double e2e_seconds)
 {
@@ -212,8 +243,8 @@ int main(int argc, char **argv)
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
     
-    int stripe_num = 5;
-/*
+    int stripe_num = 1;
+
     size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
     std::cout << "Starting set stripe operation" << std::endl;
     std::chrono::high_resolution_clock::time_point set_start = std::chrono::high_resolution_clock::now();
@@ -230,10 +261,10 @@ int main(int argc, char **argv)
 
     std::uniform_int_distribution<int> dist_500(0, k*stripe_num - 500);
     std::uniform_real_distribution<double> dist_double(0.0, 1.0);
-*/
+
     
     //for read test
-/*  
+ /*
     std::cout << "Normal read test start" << std::endl;
     std::vector<std::chrono::duration<double>> read_time_spans;
     for(int i = 0; i < 5; i++){
@@ -265,8 +296,7 @@ int main(int argc, char **argv)
 */
 
 /*
-    //for degraded read test
-    
+    //for degraded read test 
     std::vector<std::chrono::duration<double>> degraded_read_time_spans;
     std::cout << "Degraded read test start" << std::endl;
     for(int i = 0; i < k; i++){
@@ -325,10 +355,9 @@ int main(int argc, char **argv)
     //client.multi_block_recovery(0, {0, 1});
     //sleep(5);
 
-/*
+
     // for one block recovery
     {
-        const double recovered_mb = block_size;
         std::vector<std::chrono::duration<double>> one_block_recovery_time_spans;
         std::cout << "One block recovery test start" << std::endl;
         for (int i = 0; i < 10; i++)
@@ -340,18 +369,17 @@ int main(int argc, char **argv)
                 std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
             one_block_recovery_time_spans.push_back(time_span);
             if (time_span.count() > 0)
-                std::cout << "[" << i << "th] One block recovery throughput: "
-                          << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
+                std::cout << "[" << i << "th] One block recovery time: "
+                          << time_span.count() << " s" << std::endl;
         }
-        print_throughput_summary("One block recovery", one_block_recovery_time_spans, recovered_mb);
+        print_recovery_time_summary("One block recovery", one_block_recovery_time_spans);
         std::cout << "One block recovery test end" << std::endl;
         std::cout << std::endl;
     }
-*/
+
 /*
     // for two block recovery (test blocks 0 and 1)
     {
-        const double recovered_mb = 2.0 * block_size;
         std::vector<std::chrono::duration<double>> multi_block_recovery_time_spans;
         std::cout << "Two block recovery test start (blocks 0, 1)" << std::endl;
         for (int i = 0; i < 10; i++)
@@ -363,16 +391,16 @@ int main(int argc, char **argv)
                 std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
             multi_block_recovery_time_spans.push_back(time_span);
             if (time_span.count() > 0)
-                std::cout << "[" << i << "th] Two block recovery throughput: "
-                          << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
+                std::cout << "[" << i << "th] Two block recovery time: "
+                          << time_span.count() << " s" << std::endl;
         }
-        print_throughput_summary("Two block recovery", multi_block_recovery_time_spans, recovered_mb);
+        print_recovery_time_summary("Two block recovery", multi_block_recovery_time_spans);
         std::cout << "Two block recovery test end" << std::endl;
         std::cout << std::endl;
     }
 */
 
-/*  
+ /*
     // 打点 breakdown test for two block recovery (test blocks 0 and 1)
     {
         const double recovered_mb = 2.0 * block_size;
@@ -473,9 +501,6 @@ int main(int argc, char **argv)
         else
             print_block_ids("  Blocks via recovery() one-by-one (single-block local):", local_recover_ids);
 
-        const double recovered_mb =
-            static_cast<double>(first_rack_failed.size()) * block_size;
-
         std::vector<std::chrono::duration<double>> multi_block_recovery_one_rack_time_spans;
         for (int i = 0; i < 10; i++)
         {
@@ -494,11 +519,10 @@ int main(int argc, char **argv)
                 std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
             multi_block_recovery_one_rack_time_spans.push_back(time_span);
             if (time_span.count() > 0)
-                std::cout << "[" << i << "th] One rack recovery throughput: "
-                          << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
+                std::cout << "[" << i << "th] One rack recovery time: "
+                          << time_span.count() << " s" << std::endl;
         }
-        print_throughput_summary("One rack recovery", multi_block_recovery_one_rack_time_spans,
-                                 recovered_mb);
+        print_recovery_time_summary("One rack recovery", multi_block_recovery_one_rack_time_spans);
         std::cout << "One rack recovery test end" << std::endl;
         std::cout << std::endl;
         }
@@ -530,7 +554,6 @@ int main(int argc, char **argv)
         };
 
         std::vector<StripeRepairPlan> plans;
-        double recovered_mb = 0.0;
         bool layout_ok = true;
 
         for (int sid = 0; sid < stripe_num; ++sid)
@@ -570,7 +593,6 @@ int main(int argc, char **argv)
                 plan.lotus_two_block_local =
                     (code_type == "LotusLRC" && plan.local_fill.size() == 2);
             }
-            recovered_mb += static_cast<double>(failed.size()) * block_size;
             plans.push_back(std::move(plan));
         }
 
@@ -637,11 +659,10 @@ int main(int argc, char **argv)
                 std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
             multi_stripe_one_rack_time_spans.push_back(time_span);
             if (time_span.count() > 0)
-                std::cout << "[" << i << "th] Multi-stripe one rack recovery throughput: "
-                        << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
+                std::cout << "[" << i << "th] Multi-stripe one rack recovery time: "
+                        << time_span.count() << " s" << std::endl;
         }
-        print_throughput_summary("Multi-stripe one rack recovery", multi_stripe_one_rack_time_spans,
-                                recovered_mb);
+        print_recovery_time_summary("Multi-stripe one rack recovery", multi_stripe_one_rack_time_spans);
         std::cout << "Multi-stripe one rack recovery test end" << std::endl;
         std::cout << std::endl;
         }
@@ -782,7 +803,7 @@ int main(int argc, char **argv)
     //     std::cout << "node_id range [0, " << (total_nodes - 1) << "], sampled nodes:";
     //     print_block_ids("", node_ids);
 
-    //     std::vector<double> full_node_recovery_speeds;
+    //     std::vector<double> full_node_recovery_times;
     //     for (int i = 0; i < node_num; i++)
     //     {
     //         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
@@ -798,31 +819,29 @@ int main(int argc, char **argv)
     //         }
     //         if (time_span.count() <= 0)
     //             continue;
-    //         double total_size = static_cast<double>(block_num) * block_size;
-    //         double speed = total_size / time_span.count();
-    //         full_node_recovery_speeds.push_back(speed);
+    //         full_node_recovery_times.push_back(time_span.count());
     //         std::cout << "  node " << node_ids[i] << ": " << block_num << " blocks, "
-    //                   << speed << " MB/s" << std::endl;
+    //                   << time_span.count() << " s" << std::endl;
     //     }
-    //     if (full_node_recovery_speeds.empty())
+    //     if (full_node_recovery_times.empty())
     //     {
     //         std::cout << "No successful full-node recovery samples (all nodes empty?)" << std::endl;
     //     }
     //     else
     //     {
-    //         std::cout << "Average speed: "
-    //                   << std::accumulate(full_node_recovery_speeds.begin(),
-    //                                      full_node_recovery_speeds.end(), 0.0) /
-    //                          full_node_recovery_speeds.size()
-    //                   << " MB/s" << std::endl;
-    //         std::cout << "Max speed: "
-    //                   << *std::max_element(full_node_recovery_speeds.begin(),
-    //                                        full_node_recovery_speeds.end())
-    //                   << " MB/s" << std::endl;
-    //         std::cout << "Min speed: "
-    //                   << *std::min_element(full_node_recovery_speeds.begin(),
-    //                                        full_node_recovery_speeds.end())
-    //                   << " MB/s" << std::endl;
+    //         std::cout << "Average recovery time: "
+    //                   << std::accumulate(full_node_recovery_times.begin(),
+    //                                      full_node_recovery_times.end(), 0.0) /
+    //                          full_node_recovery_times.size()
+    //                   << " s" << std::endl;
+    //         std::cout << "Max recovery time: "
+    //                   << *std::max_element(full_node_recovery_times.begin(),
+    //                                        full_node_recovery_times.end())
+    //                   << " s" << std::endl;
+    //         std::cout << "Min recovery time: "
+    //                   << *std::min_element(full_node_recovery_times.begin(),
+    //                                        full_node_recovery_times.end())
+    //                   << " s" << std::endl;
     //     }
     //     std::cout << "Full node repair test end" << std::endl;
     //     std::cout << std::endl;
@@ -855,7 +874,7 @@ int main(int argc, char **argv)
     //         std::cout << " (" << node_pairs[i].first << "," << node_pairs[i].second << ")";
     //     std::cout << std::endl;
 
-    //     std::vector<double> two_node_recovery_speeds;
+    //     std::vector<double> two_node_recovery_times;
     //     for (int i = 0; i < pair_num; i++)
     //     {
     //         const int n0 = node_pairs[i].first;
@@ -873,31 +892,29 @@ int main(int argc, char **argv)
     //         }
     //         if (time_span.count() <= 0)
     //             continue;
-    //         double total_size = static_cast<double>(block_num) * block_size;
-    //         double speed = total_size / time_span.count();
-    //         two_node_recovery_speeds.push_back(speed);
+    //         two_node_recovery_times.push_back(time_span.count());
     //         std::cout << "  nodes " << n0 << "," << n1 << ": " << block_num << " blocks, "
-    //                   << speed << " MB/s" << std::endl;
+    //                   << time_span.count() << " s" << std::endl;
     //     }
-    //     if (two_node_recovery_speeds.empty())
+    //     if (two_node_recovery_times.empty())
     //     {
     //         std::cout << "No successful two-node recovery samples (all pairs empty?)" << std::endl;
     //     }
     //     else
     //     {
-    //         std::cout << "Average speed: "
-    //                   << std::accumulate(two_node_recovery_speeds.begin(),
-    //                                      two_node_recovery_speeds.end(), 0.0) /
-    //                          two_node_recovery_speeds.size()
-    //                   << " MB/s" << std::endl;
-    //         std::cout << "Max speed: "
-    //                   << *std::max_element(two_node_recovery_speeds.begin(),
-    //                                        two_node_recovery_speeds.end())
-    //                   << " MB/s" << std::endl;
-    //         std::cout << "Min speed: "
-    //                   << *std::min_element(two_node_recovery_speeds.begin(),
-    //                                        two_node_recovery_speeds.end())
-    //                   << " MB/s" << std::endl;
+    //         std::cout << "Average recovery time: "
+    //                   << std::accumulate(two_node_recovery_times.begin(),
+    //                                      two_node_recovery_times.end(), 0.0) /
+    //                          two_node_recovery_times.size()
+    //                   << " s" << std::endl;
+    //         std::cout << "Max recovery time: "
+    //                   << *std::max_element(two_node_recovery_times.begin(),
+    //                                        two_node_recovery_times.end())
+    //                   << " s" << std::endl;
+    //         std::cout << "Min recovery time: "
+    //                   << *std::min_element(two_node_recovery_times.begin(),
+    //                                        two_node_recovery_times.end())
+    //                   << " s" << std::endl;
     //     }
     //     std::cout << "Two node repair test end" << std::endl;
     //     std::cout << std::endl;
