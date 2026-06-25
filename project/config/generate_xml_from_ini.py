@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
-根据 project/config/cluster.ini 生成 clusterInformation.xml，并更新 parameterConfiguration.xml
-中的 ClusterNum、DatanodeNumPerCluster（及可选 CoordinatorIP）。
-与 run_all_remote.sh 共用同一份 INI。
+根据 project/config/cluster.ini + all_ips 生成/更新集群配置。
+
+all_ips 模式（ip_mode=all_ips）：
+  1. 读取 all_ips（顺序任意）
+  2. 排序后：最小->client，次小->coordinator，其余按 cluster 分组 proxy/datanode
+  3. 写入 clusterInformation.xml、parameterConfiguration.xml、cluster.ini
+  4. 写入仓库根目录 hosts、proxy_hosts
+  5. 同步 main_client.cpp 中的 client_ip 硬编码
 """
 import configparser
 import re
@@ -10,96 +15,16 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from ip_layout import compute_layout, load_ini, repo_root_from_ini, write_lines
+
 CONFIG_DIR = Path(__file__).resolve().parent
 INI_PATH = CONFIG_DIR / "cluster.ini"
 CLUSTER_XML_PATH = CONFIG_DIR / "clusterInformation.xml"
 PARAM_XML_PATH = CONFIG_DIR / "parameterConfiguration.xml"
+MAIN_CLIENT_CPP = CONFIG_DIR.parent / "run_cpp" / "main_client.cpp"
 
 
-def load_ini():
-    cfg = configparser.ConfigParser()
-    if not INI_PATH.exists():
-        print(f"Error: {INI_PATH} not found", file=sys.stderr)
-        sys.exit(1)
-    cfg.read(INI_PATH, encoding="utf-8")
-    return cfg
-
-
-def load_node_hosts(repo_root: Path, cfg) -> list[str]:
-    rel = cfg["cluster"].get("node_hosts_file", "node_hosts").strip()
-    hosts_path = Path(rel) if Path(rel).is_absolute() else repo_root / rel
-    if not hosts_path.exists():
-        print(f"Error: node_hosts not found: {hosts_path}", file=sys.stderr)
-        sys.exit(1)
-    ips = []
-    for line in hosts_path.read_text(encoding="utf-8").splitlines():
-        line = line.split("#", 1)[0].strip()
-        if line:
-            ips.append(line)
-    return ips
-
-
-def compute_cluster_info(cfg):
-    sect = cfg["cluster"]
-    n = int(sect["cluster_num"])
-    dn_per = int(sect["datanode_per_cluster"])
-    first_ip = sect["first_proxy_ip"].strip()
-    first_port = int(sect["first_proxy_port"])
-    dn_start = int(sect["datanode_port_start"])
-    ip_mode = sect.get("ip_mode", "distributed").strip()
-    use_localhost = first_ip == "127.0.0.1"
-    repo_root = CONFIG_DIR.parent.parent
-
-    if ip_mode == "hosts_list":
-        node_hosts = load_node_hosts(repo_root, cfg)
-        expected = n * (1 + dn_per)
-        if len(node_hosts) != expected:
-            print(
-                f"Error: node_hosts count {len(node_hosts)} != expected {expected}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        clusters = []
-        idx = 0
-        for c in range(n):
-            proxy_ip = node_hosts[idx]
-            idx += 1
-            proxy_port = first_port + c
-            datanodes = []
-            for d in range(dn_per):
-                datanodes.append(f"{node_hosts[idx]}:{dn_start + c * dn_per + d}")
-                idx += 1
-            clusters.append({"proxy": f"{proxy_ip}:{proxy_port}", "datanodes": datanodes})
-        return clusters, n, dn_per, sect.get("coordinator_ip", "0.0.0.0").strip()
-
-    if use_localhost:
-        prefix, first_octet = "", 0
-    else:
-        parts = first_ip.rsplit(".", 1)
-        prefix = parts[0] + "."
-        first_octet = int(parts[1])
-    clusters = []
-    # IP allocation:
-    # - If first_proxy_ip is 127.0.0.1, keep all IPs as 127.0.0.1 (option B).
-    # - Otherwise, allocate unique IPs globally starting from first_proxy_ip:
-    #   proxy + all datanodes across all clusters each get a distinct IP by incrementing the last octet.
-    ip_idx = 0
-    for c in range(n):
-        proxy_ip = "127.0.0.1" if use_localhost else f"{prefix}{first_octet + ip_idx}"
-        if not use_localhost:
-            ip_idx += 1
-        proxy_port = first_port + c
-        datanodes = []
-        for d in range(dn_per):
-            dn_ip = "127.0.0.1" if use_localhost else f"{prefix}{first_octet + ip_idx}"
-            if not use_localhost:
-                ip_idx += 1
-            datanodes.append(f"{dn_ip}:{dn_start + c * dn_per + d}")
-        clusters.append({"proxy": f"{proxy_ip}:{proxy_port}", "datanodes": datanodes})
-    return clusters, n, dn_per, sect.get("coordinator_ip", "0.0.0.0").strip()
-
-
-def write_cluster_information_xml(clusters):
+def write_cluster_information_xml(clusters: list[dict]) -> None:
     root = ET.Element("clusters")
     root.text = "\n\t"
     for i, cl in enumerate(clusters):
@@ -112,8 +37,7 @@ def write_cluster_information_xml(clusters):
             dn.tail = "\n\t\t\t" if j < len(cl["datanodes"]) - 1 else "\n\t\t"
         datanodes_el.tail = "\n\t" if i < len(clusters) - 1 else "\n"
         cluster_el.tail = "\n\t" if i < len(clusters) - 1 else "\n"
-    tree = ET.ElementTree(root)
-    tree.write(
+    ET.ElementTree(root).write(
         CLUSTER_XML_PATH,
         encoding="utf-8",
         xml_declaration=True,
@@ -123,7 +47,9 @@ def write_cluster_information_xml(clusters):
     print(f"Written {CLUSTER_XML_PATH}")
 
 
-def update_parameter_configuration_xml(cluster_num, datanode_per_cluster, coordinator_ip):
+def update_parameter_configuration_xml(
+    cluster_num: int, datanode_per_cluster: int, coordinator_ip: str
+) -> None:
     if not PARAM_XML_PATH.exists():
         print(f"Warning: {PARAM_XML_PATH} not found, skip update", file=sys.stderr)
         return
@@ -147,14 +73,90 @@ def update_parameter_configuration_xml(cluster_num, datanode_per_cluster, coordi
         count=1,
     )
     PARAM_XML_PATH.write_text(text, encoding="utf-8")
-    print(f"Updated {PARAM_XML_PATH} (ClusterNum, DatanodeNumPerCluster, CoordinatorIP)")
+    print(
+        f"Updated {PARAM_XML_PATH} (ClusterNum, DatanodeNumPerCluster, CoordinatorIP)"
+    )
 
 
-def main():
-    cfg = load_ini()
-    clusters, cluster_num, dn_per, coordinator_ip = compute_cluster_info(cfg)
-    write_cluster_information_xml(clusters)
-    update_parameter_configuration_xml(cluster_num, dn_per, coordinator_ip)
+def update_cluster_ini(client_ip: str, coordinator_ip: str, first_proxy_ip: str) -> None:
+    text = INI_PATH.read_text(encoding="utf-8")
+    text = re.sub(
+        r"(^client_ip\s*=\s*).*$",
+        rf"\g<1>{client_ip}",
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    text = re.sub(
+        r"(^coordinator_ip\s*=\s*).*$",
+        rf"\g<1>{coordinator_ip}",
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    text = re.sub(
+        r"(^first_proxy_ip\s*=\s*).*$",
+        rf"\g<1>{first_proxy_ip}",
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    INI_PATH.write_text(text, encoding="utf-8")
+    print(f"Updated {INI_PATH} (client_ip, coordinator_ip, first_proxy_ip)")
+
+
+def update_main_client_cpp(client_ip: str) -> None:
+    if not MAIN_CLIENT_CPP.exists():
+        print(f"Warning: {MAIN_CLIENT_CPP} not found, skip update", file=sys.stderr)
+        return
+    text = MAIN_CLIENT_CPP.read_text(encoding="utf-8")
+    new_text, n = re.subn(
+        r'(std::string client_ip = ")[^"]+(";)',
+        rf"\g<1>{client_ip}\g<2>",
+        text,
+        count=1,
+    )
+    if n != 1:
+        print(f"Warning: failed to update client_ip in {MAIN_CLIENT_CPP}", file=sys.stderr)
+        return
+    MAIN_CLIENT_CPP.write_text(new_text, encoding="utf-8")
+    print(f"Updated {MAIN_CLIENT_CPP} (client_ip={client_ip})")
+
+
+def main() -> None:
+    cfg = load_ini(INI_PATH)
+    layout = compute_layout(cfg, INI_PATH)
+    repo_root = repo_root_from_ini(INI_PATH)
+
+    cluster_num = int(cfg["cluster"]["cluster_num"])
+    dn_per = int(cfg["cluster"]["datanode_per_cluster"])
+
+    write_cluster_information_xml(layout.clusters)
+    update_parameter_configuration_xml(cluster_num, dn_per, layout.coordinator_ip)
+    update_cluster_ini(layout.client_ip, layout.coordinator_ip, layout.first_proxy_ip)
+
+    write_lines(
+        repo_root / "hosts",
+        layout.all_hosts,
+        header=(
+            f"{len(layout.all_hosts)} nodes: client, coordinator, proxy, datanode "
+            "(auto-generated from all_ips)"
+        ),
+    )
+    write_lines(
+        repo_root / "proxy_hosts",
+        layout.proxy_hosts,
+        header=f"{len(layout.proxy_hosts)} proxy nodes (auto-generated from all_ips)",
+    )
+    print(f"Written {repo_root / 'hosts'}")
+    print(f"Written {repo_root / 'proxy_hosts'}")
+
+    update_main_client_cpp(layout.client_ip)
+
+    print("\nRole assignment (sorted):")
+    print(f"  client       -> {layout.client_ip}")
+    print(f"  coordinator  -> {layout.coordinator_ip}")
+    print(f"  clusters     -> {cluster_num} x (1 proxy + {dn_per} datanode)")
 
 
 if __name__ == "__main__":

@@ -51,10 +51,18 @@ SSH_USER="$(get_ini ssh user)"
 IP_MODE="$(get_ini cluster ip_mode)"
 [ -n "$IP_MODE" ] || IP_MODE="distributed"
 
-[ -n "${CLUSTER_NUM:-}" ] && [ -n "${DN_PER:-}" ] && [ -n "${FIRST_IP:-}" ] && [ -n "${FIRST_PORT:-}" ] || {
+IP_LAYOUT="$SCRIPT_DIR/project/config/ip_layout.py"
+
+[ -n "${CLUSTER_NUM:-}" ] && [ -n "${DN_PER:-}" ] && [ -n "${FIRST_PORT:-}" ] || {
   echo "Missing required [cluster] keys in $CONFIG"
   exit 1
 }
+if [ "$IP_MODE" != "all_ips" ]; then
+  [ -n "${FIRST_IP:-}" ] || {
+    echo "Missing first_proxy_ip in $CONFIG"
+    exit 1
+  }
+fi
 [ -n "${SSH_USER:-}" ] || {
   echo "Missing required [ssh] user in $CONFIG"
   exit 1
@@ -69,24 +77,15 @@ PREFIX="${FIRST_IP%.*}."
 FIRST_OCTET="${FIRST_IP##*.}"
 
 NODE_HOSTS=()
-if [ "$IP_MODE" = "hosts_list" ]; then
-  NODE_HOSTS_FILE="$(get_ini cluster node_hosts_file)"
-  [ -n "${NODE_HOSTS_FILE:-}" ] || NODE_HOSTS_FILE="node_hosts"
-  [[ "$NODE_HOSTS_FILE" != /* ]] && NODE_HOSTS_FILE="$SCRIPT_DIR/$NODE_HOSTS_FILE"
-  if [ ! -f "$NODE_HOSTS_FILE" ]; then
-    echo "node_hosts not found: $NODE_HOSTS_FILE"
+if [ "$IP_MODE" = "all_ips" ]; then
+  if [ ! -f "$IP_LAYOUT" ]; then
+    echo "ip_layout.py not found: $IP_LAYOUT"
     exit 1
   fi
-  while IFS= read -r line || [ -n "$line" ]; do
-    line="${line%%#*}"
-    line="${line#"${line%%[![:space:]]*}"}"
-    line="${line%"${line##*[![:space:]]}"}"
-    [ -n "$line" ] || continue
-    NODE_HOSTS+=("$line")
-  done < "$NODE_HOSTS_FILE"
+  mapfile -t NODE_HOSTS < <(python3 "$IP_LAYOUT" --ini "$CONFIG" --format node-ips)
   expected=$((CLUSTER_NUM * (1 + DN_PER)))
   if [ "${#NODE_HOSTS[@]}" -ne "$expected" ]; then
-    echo "node_hosts count ${#NODE_HOSTS[@]} != expected $expected"
+    echo "all_ips node count ${#NODE_HOSTS[@]} != expected $expected"
     exit 1
   fi
 fi
@@ -98,7 +97,7 @@ ip_idx=0
 for ((c=0; c<CLUSTER_NUM; c++)); do
   if [ "$IP_MODE" = "port_simulated" ]; then
     proxy_ip="${PREFIX}$((FIRST_OCTET + c))"
-  elif [ "$IP_MODE" = "hosts_list" ]; then
+  elif [ "$IP_MODE" = "all_ips" ]; then
     proxy_ip="${NODE_HOSTS[$ip_idx]}"
     ip_idx=$((ip_idx + 1))
   else
@@ -109,7 +108,7 @@ for ((c=0; c<CLUSTER_NUM; c++)); do
   for ((d=0; d<DN_PER; d++)); do
     if [ "$IP_MODE" = "port_simulated" ]; then
       dn_ip="$proxy_ip"
-    elif [ "$IP_MODE" = "hosts_list" ]; then
+    elif [ "$IP_MODE" = "all_ips" ]; then
       dn_ip="${NODE_HOSTS[$ip_idx]}"
       ip_idx=$((ip_idx + 1))
     else
@@ -142,7 +141,9 @@ project/cmake/build/run_proxy
 project/config/cluster.ini
 project/config/clusterInformation.xml
 project/config/parameterConfiguration.xml
-node_hosts
+all_ips
+hosts
+proxy_hosts
 EOF
 
 cat >"$FILELIST_DN" <<'EOF'
@@ -150,7 +151,9 @@ project/cmake/build/run_datanode
 project/config/cluster.ini
 project/config/clusterInformation.xml
 project/config/parameterConfiguration.xml
-node_hosts
+all_ips
+hosts
+proxy_hosts
 EOF
 
 cat >"$FILELIST_COORD" <<'EOF'
@@ -158,7 +161,9 @@ project/cmake/build/run_coordinator
 project/config/cluster.ini
 project/config/clusterInformation.xml
 project/config/parameterConfiguration.xml
-node_hosts
+all_ips
+hosts
+proxy_hosts
 EOF
 
 sync_group() {

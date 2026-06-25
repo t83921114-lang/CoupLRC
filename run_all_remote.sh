@@ -48,11 +48,19 @@ IP_MODE=$(get_ini cluster ip_mode)
 REMOTE_REPO="$SCRIPT_DIR"
 [ -n "$IP_MODE" ] || IP_MODE="distributed"
 
+IP_LAYOUT="$SCRIPT_DIR/project/config/ip_layout.py"
+
 # 校验
-[ -n "$CLUSTER_NUM" ] && [ -n "$DN_PER" ] && [ -n "$FIRST_IP" ] && [ -n "$FIRST_PORT" ] || {
+[ -n "$CLUSTER_NUM" ] && [ -n "$DN_PER" ] && [ -n "$FIRST_PORT" ] || {
   echo "Missing required [cluster] keys in $CONFIG"
   exit 1
 }
+if [ "$IP_MODE" != "all_ips" ]; then
+  [ -n "$FIRST_IP" ] || {
+    echo "Missing first_proxy_ip in $CONFIG"
+    exit 1
+  }
+fi
 [ -n "$SSH_USER" ] || {
   echo "Missing required [ssh] user in $CONFIG"
   exit 1
@@ -71,25 +79,23 @@ fi
 BUILD="$REMOTE_REPO/project/cmake/build"
 
 NODE_HOSTS=()
-if [ "$IP_MODE" = "hosts_list" ]; then
-  NODE_HOSTS_FILE=$(get_ini cluster node_hosts_file)
-  [ -n "$NODE_HOSTS_FILE" ] || NODE_HOSTS_FILE="node_hosts"
-  [[ "$NODE_HOSTS_FILE" != /* ]] && NODE_HOSTS_FILE="$SCRIPT_DIR/$NODE_HOSTS_FILE"
-  if [ ! -f "$NODE_HOSTS_FILE" ]; then
-    echo "node_hosts not found: $NODE_HOSTS_FILE"
+if [ "$IP_MODE" = "all_ips" ]; then
+  if [ ! -f "$IP_LAYOUT" ]; then
+    echo "ip_layout.py not found: $IP_LAYOUT"
     exit 1
   fi
-  while IFS= read -r line || [ -n "$line" ]; do
-    line="${line%%#*}"
-    line="${line#"${line%%[![:space:]]*}"}"
-    line="${line%"${line##*[![:space:]]}"}"
-    [ -n "$line" ] || continue
-    NODE_HOSTS+=("$line")
-  done < "$NODE_HOSTS_FILE"
+  mapfile -t NODE_HOSTS < <(python3 "$IP_LAYOUT" --ini "$CONFIG" --format node-ips)
   expected=$((CLUSTER_NUM * (1 + DN_PER)))
   if [ "${#NODE_HOSTS[@]}" -ne "$expected" ]; then
-    echo "node_hosts count ${#NODE_HOSTS[@]} != expected $expected"
+    echo "all_ips node count ${#NODE_HOSTS[@]} != expected $expected"
     exit 1
+  fi
+  CLIENT_IP=$(python3 "$IP_LAYOUT" --ini "$CONFIG" --format client-ip)
+  if [ "$CLIENT_IP" = "127.0.0.1" ]; then
+    USE_LOCALHOST=1
+    IP_MODE="colocated"
+  else
+    USE_LOCALHOST=0
   fi
 fi
 
@@ -110,7 +116,7 @@ while [ "$c" -lt "$CLUSTER_NUM" ]; do
     PROXY_IP="127.0.0.1"
   elif [ "$IP_MODE" = "port_simulated" ]; then
     PROXY_IP="${PREFIX}$((FIRST_OCTET + c))"
-  elif [ "$IP_MODE" = "hosts_list" ]; then
+  elif [ "$IP_MODE" = "all_ips" ]; then
     PROXY_IP="${NODE_HOSTS[$ip_idx]}"
     ip_idx=$((ip_idx + 1))
   else
@@ -126,7 +132,7 @@ while [ "$c" -lt "$CLUSTER_NUM" ]; do
     DP=$((DN_PORT_START + c * DN_PER + d))
     if [ "$USE_LOCALHOST" = 1 ] || [ "$IP_MODE" = "port_simulated" ]; then
       DN_IP="$PROXY_IP"
-    elif [ "$IP_MODE" = "hosts_list" ]; then
+    elif [ "$IP_MODE" = "all_ips" ]; then
       DN_IP="${NODE_HOSTS[$ip_idx]}"
       ip_idx=$((ip_idx + 1))
     else
