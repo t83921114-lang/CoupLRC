@@ -367,7 +367,7 @@ int main(int argc, char **argv)
     std::cout << "Min speed: " << static_cast<size_t>(block_size) / degraded_read_max_time_span.count() << " MB/s" << std::endl;
     std::cout << "Degraded read test end" << std::endl;
     std::cout << std::endl;
-/*
+
     // Maintenance-robust normal read（与 Normal/Degraded read 共用预写后的 stripe 0）
     {
         const int test_stripe_id = 0;
@@ -457,7 +457,7 @@ int main(int argc, char **argv)
             std::cout << std::endl;
         }
     }
-*/
+
 
     // /*
     // //for single block recovery
