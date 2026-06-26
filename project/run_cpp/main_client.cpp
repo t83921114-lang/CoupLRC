@@ -304,7 +304,7 @@ int main(int argc, char **argv)
     std::uniform_int_distribution<int> dist_500(0, k*stripe_num - 500);
     std::uniform_real_distribution<double> dist_double(0.0, 1.0);
 
-    
+ 
     // 读性能测试：Normal read -> Degraded read -> Maintenance-robust read（共用上方预写的 stripe）
     std::cout << "Normal read test start" << std::endl;
     std::vector<std::chrono::duration<double>> read_time_spans;
@@ -368,6 +368,8 @@ int main(int argc, char **argv)
     std::cout << "Degraded read test end" << std::endl;
     std::cout << std::endl;
 
+
+/*
     // Maintenance-robust normal read（与 Normal/Degraded read 共用预写后的 stripe 0）
     {
         const int test_stripe_id = 0;
@@ -457,7 +459,7 @@ int main(int argc, char **argv)
             std::cout << std::endl;
         }
     }
-
+*/
 
     // /*
     // //for single block recovery
