@@ -285,7 +285,7 @@ int main(int argc, char **argv)
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
     
-    int stripe_num = 5;
+    int stripe_num = 9;
 
     size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
     std::cout << "Starting set stripe operation" << std::endl;
@@ -304,7 +304,7 @@ int main(int argc, char **argv)
     std::uniform_int_distribution<int> dist_500(0, k*stripe_num - 500);
     std::uniform_real_distribution<double> dist_double(0.0, 1.0);
 
- 
+ /*
     // 读性能测试：Normal read -> Degraded read -> Maintenance-robust read（共用上方预写的 stripe）
     std::cout << "Normal read test start" << std::endl;
     std::vector<std::chrono::duration<double>> read_time_spans;
@@ -367,7 +367,7 @@ int main(int argc, char **argv)
     std::cout << "Min speed: " << static_cast<size_t>(block_size) / degraded_read_max_time_span.count() << " MB/s" << std::endl;
     std::cout << "Degraded read test end" << std::endl;
     std::cout << std::endl;
-
+*/
 
 /*
     // Maintenance-robust normal read（与 Normal/Degraded read 共用预写后的 stripe 0）
@@ -533,7 +533,7 @@ int main(int argc, char **argv)
     }
 */
 
- /*
+ 
     // 打点 breakdown test for two block recovery (test blocks 0 and 1)
     {
         const double recovered_mb = 2.0 * block_size;
@@ -586,7 +586,7 @@ int main(int argc, char **argv)
         std::cout << "Two block recovery breakdown test end" << std::endl;
         std::cout << std::endl;
     }
-*/
+
 
 /*
 // Multi block recovery: first cluster (rack) fails under current layout + placement
@@ -662,7 +662,7 @@ int main(int argc, char **argv)
     }
 */
 
-/*
+
 //多条带单机架修复
     {
         const int failed_cluster_id = 0;
@@ -800,10 +800,10 @@ int main(int argc, char **argv)
         std::cout << std::endl;
         }
     }
-*/
 
 
-/*
+
+
     const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
 
     //Full node repair: fixed-seed sample over [0, ClusterNum*DatanodeNumPerCluster)
@@ -940,7 +940,7 @@ int main(int argc, char **argv)
     // std::cout << std::accumulate(decode_time_spans.begin(), decode_time_spans.end(), 0.0) / decode_time_spans.size() << std::endl;
     // std::cout << "Decode test end" << std::endl;
     // std::cout << std::endl;
-*/
+
 
 
 /*

@@ -1394,25 +1394,42 @@ namespace ECProject
     {
       if (disk_io_start_time.empty())
         return;
-      const double max_disk_io_time =
-          *std::max_element(disk_io_end_time.begin(), disk_io_end_time.end()) -
-          *std::min_element(disk_io_start_time.begin(), disk_io_start_time.end());
-      reply->set_disk_read_time(max_disk_io_time);
-      const double max_decode_time =
-          *std::max_element(decode_end_time.begin(), decode_end_time.end()) -
-          *std::min_element(decode_start_time.begin(), decode_start_time.end());
-      reply->set_decode_time(max_decode_time + cross_rack_xor_time);
-      const double max_network_time =
-          *std::max_element(network_end_time.begin(), network_end_time.end()) -
-          *std::min_element(network_start_time.begin(), network_start_time.end());
-      const double max_grpc_delay =
-          *std::max_element(grpc_start_time.begin(), grpc_start_time.end()) -
-          *std::min_element(grpc_notify_time.begin(), grpc_notify_time.end());
-      const double max_data_node_grpc_delay =
-          *std::max_element(data_node_grpc_start_time.begin(), data_node_grpc_start_time.end()) -
-          *std::min_element(data_node_grpc_notify_time.begin(), data_node_grpc_notify_time.end());
-      reply->set_network_time(max_network_time + cross_rack_network_time + dest_data_node_network_time +
-                              max_grpc_delay + max_data_node_grpc_delay);
+
+      // Each proxy publishes wall-clock durations (parallel max within proxy, serial sum within proxy).
+      // Coordinator merges parallel proxies with max per category.
+      double disk_read = 0.0;
+      double network = 0.0;
+      double decode = 0.0;
+      for (size_t i = 0; i < disk_io_start_time.size(); i++)
+      {
+        const double d = disk_io_end_time[i] - disk_io_start_time[i];
+        if (d > 0.0)
+          disk_read = std::max(disk_read, d);
+      }
+      for (size_t i = 0; i < network_start_time.size(); i++)
+      {
+        const double n = network_end_time[i] - network_start_time[i];
+        if (n > 0.0)
+          network = std::max(network, n);
+      }
+      for (size_t i = 0; i < decode_start_time.size(); i++)
+      {
+        const double d = decode_end_time[i] - decode_start_time[i];
+        if (d > 0.0)
+          decode = std::max(decode, d);
+      }
+
+      double coord_proxy_grpc = 0.0;
+      if (!grpc_notify_time.empty() && !grpc_start_time.empty())
+        coord_proxy_grpc =
+            std::max(0.0,
+                     *std::max_element(grpc_start_time.begin(), grpc_start_time.end()) -
+                         *std::min_element(grpc_notify_time.begin(), grpc_notify_time.end()));
+
+      network += coord_proxy_grpc;
+      reply->set_disk_read_time(disk_read);
+      reply->set_network_time(network);
+      reply->set_decode_time(decode);
       reply->set_disk_write_time(dest_data_node_disk_io_time);
     }
   };

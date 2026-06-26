@@ -1,4 +1,5 @@
 #include "proxy.h"
+#include "breakdown_timing.h"
 #include "jerasure.h"
 #include "reed_sol.h"
 #include "tinyxml2.h"
@@ -1494,12 +1495,6 @@ namespace ECProject
         return false;
       }
 
-      response->set_disk_io_start_time(*std::min_element(data_node_disk_io_start_time.begin(), data_node_disk_io_start_time.end()));
-      response->set_disk_io_end_time(*std::max_element(data_node_disk_io_end_time.begin(), data_node_disk_io_end_time.end()));
-      response->set_network_start_time(*std::min_element(data_node_network_start_time.begin(), data_node_network_start_time.end()));
-      response->set_network_end_time(*std::max_element(data_node_network_end_time.begin(), data_node_network_end_time.end()));
-      response->set_data_node_grpc_notify_time(*std::min_element(data_node_grpc_notify_time.begin(), data_node_grpc_notify_time.end()));
-      response->set_data_node_grpc_start_time(*std::max_element(data_node_grpc_start_time.begin(), data_node_grpc_start_time.end()));
       std::cout << "[Proxy" << m_self_cluster_id << "][GET]"
                 << "read from datanodes success!" << std::endl;
 
@@ -1543,8 +1538,6 @@ namespace ECProject
         ec_init_tables(cols, rows, local_matrix.data(), g_tbls.data());
         ec_encode_data_avx2(m_sys_config->BlockSize, cols, rows, g_tbls.data(), block_ptrs.data(), out_ptrs.data());
         std::chrono::high_resolution_clock::time_point decode_end = std::chrono::high_resolution_clock::now();
-        response->set_decode_start_time(std::chrono::duration_cast<std::chrono::duration<double>>(decode_start.time_since_epoch()).count());
-        response->set_decode_end_time(std::chrono::duration_cast<std::chrono::duration<double>>(decode_end.time_since_epoch()).count());
         std::string client_ip = request_copy->clientip();
         int client_port = request_copy->clientport();
         std::chrono::high_resolution_clock::time_point net_start = std::chrono::high_resolution_clock::now();
@@ -1562,11 +1555,19 @@ namespace ECProject
         }
         asio::write(sock_data, asio::buffer(multi_res_buf, static_cast<size_t>(block_num) * m_sys_config->BlockSize), error);
         std::chrono::high_resolution_clock::time_point net_end = std::chrono::high_resolution_clock::now();
-        response->set_network_start_time(std::chrono::duration_cast<std::chrono::duration<double>>(net_start.time_since_epoch()).count());
-        response->set_network_end_time(std::chrono::duration_cast<std::chrono::duration<double>>(net_end.time_since_epoch()).count());
         asio::error_code ignore_ec;
         sock_data.shutdown(asio::ip::tcp::socket::shutdown_send, ignore_ec);
         sock_data.close(ignore_ec);
+        const double disk_read = breakdown_timing::max_span_duration(
+            data_node_disk_io_start_time, data_node_disk_io_end_time);
+        const double net_read = breakdown_timing::max_span_duration(
+            data_node_network_start_time, data_node_network_end_time);
+        const double dn_grpc = breakdown_timing::grpc_delay_max(
+            data_node_grpc_notify_time, data_node_grpc_start_time);
+        const double decode_dur = breakdown_timing::duration_seconds(decode_start, decode_end);
+        const double net_send = breakdown_timing::duration_seconds(net_start, net_end);
+        breakdown_timing::publish_degraded_read(response, disk_read,
+                                                net_read + net_send + dn_grpc, decode_dur);
         std::free(multi_res_buf);
         for (int i = 0; i < request_copy->datanodeip_size(); i++)
           std::free(get_bufs[i]);
@@ -1611,8 +1612,6 @@ namespace ECProject
           exit(1);
         }
         std::chrono::high_resolution_clock::time_point t3 = std::chrono::high_resolution_clock::now();
-        response->set_decode_start_time(std::chrono::duration_cast<std::chrono::duration<double>>(t2.time_since_epoch()).count());
-        response->set_decode_end_time(std::chrono::duration_cast<std::chrono::duration<double>>(t3.time_since_epoch()).count());
         std::string client_ip = request_copy->clientip();
         int client_port = request_copy->clientport();
 
@@ -1621,7 +1620,7 @@ namespace ECProject
         asio::ip::tcp::resolver resolver(io_context);
         asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(client_ip, std::to_string(client_port));
         asio::ip::tcp::socket sock_data(io_context);
-        //asio::connect(sock_data, endpoints);
+        std::chrono::high_resolution_clock::time_point net_send_start = std::chrono::high_resolution_clock::now();
         sock_data.connect(*endpoints, error);
         if (error)
         {
@@ -1640,9 +1639,20 @@ namespace ECProject
           std::free(res_buf);
           return false;
         }
+        std::chrono::high_resolution_clock::time_point net_send_end = std::chrono::high_resolution_clock::now();
         asio::error_code ignore_ec;
         sock_data.shutdown(asio::ip::tcp::socket::shutdown_send, ignore_ec);
         sock_data.close(ignore_ec);
+        const double disk_read = breakdown_timing::max_span_duration(
+            data_node_disk_io_start_time, data_node_disk_io_end_time);
+        const double net_read = breakdown_timing::max_span_duration(
+            data_node_network_start_time, data_node_network_end_time);
+        const double dn_grpc = breakdown_timing::grpc_delay_max(
+            data_node_grpc_notify_time, data_node_grpc_start_time);
+        const double decode_dur = breakdown_timing::duration_seconds(t2, t3);
+        const double net_send = breakdown_timing::duration_seconds(net_send_start, net_send_end);
+        breakdown_timing::publish_degraded_read(response, disk_read,
+                                                net_read + net_send + dn_grpc, decode_dur);
         for (int i = 0; i < request_copy->datanodeip_size(); i++)
           std::free(get_bufs[i]);
         std::free(res_buf);
@@ -2031,6 +2041,9 @@ namespace ECProject
 
     bool all_true = std::all_of(status.get(), status.get() + recovery_request->datanodeip_size(), [](bool val)
                                 { return val == true; });
+    double decode_dur = 0.0;
+    double cross_rack_dur = 0.0;
+    double xor_dur = 0.0;
     if (!all_true)
     {
       std::cout << "[Proxy" << m_self_cluster_id << "][GET]"
@@ -2039,15 +2052,6 @@ namespace ECProject
 
     else
     {
-      //response->set_disk_io_time(*std::max_element(data_node_disk_io_end_time.begin(), data_node_disk_io_end_time.end()) - *std::min_element(data_node_disk_io_start_time.begin(), data_node_disk_io_start_time.end()));
-      //response->set_network_time(*std::max_element(data_node_network_end_time.begin(), data_node_network_end_time.end()) - *std::min_element(data_node_network_start_time.begin(), data_node_network_start_time.end()));
-      response->set_disk_io_start_time(*std::min_element(data_node_disk_io_start_time.begin(), data_node_disk_io_start_time.end()));
-      response->set_disk_io_end_time(*std::max_element(data_node_disk_io_end_time.begin(), data_node_disk_io_end_time.end()));
-      response->set_network_start_time(*std::min_element(data_node_network_start_time.begin(), data_node_network_start_time.end()));
-      response->set_network_end_time(*std::max_element(data_node_network_end_time.begin(), data_node_network_end_time.end()));
-      response->set_data_node_grpc_notify_time(*std::min_element(data_node_grpc_notify_time.begin(), data_node_grpc_notify_time.end()));
-      response->set_data_node_grpc_start_time(*std::max_element(data_node_grpc_start_time.begin(), data_node_grpc_start_time.end()));
-
       std::cout << "[Proxy" << m_self_cluster_id << "][GET]"
                 << "read from datanodes success!" << std::endl;
       std::chrono::high_resolution_clock::time_point decode_start_time = std::chrono::high_resolution_clock::now();
@@ -2085,8 +2089,7 @@ namespace ECProject
         exit(1);
       }
       std::chrono::high_resolution_clock::time_point decode_end_time = std::chrono::high_resolution_clock::now();
-      response->set_decode_start_time(std::chrono::duration_cast<std::chrono::duration<double>>(decode_start_time.time_since_epoch()).count());
-      response->set_decode_end_time(std::chrono::duration_cast<std::chrono::duration<double>>(decode_end_time.time_since_epoch()).count());
+      decode_dur = breakdown_timing::duration_seconds(decode_start_time, decode_end_time);
 
       if(cross_rack_num){
         std::cout << "start to recover cross rack" << std::endl;
@@ -2124,8 +2127,7 @@ namespace ECProject
         }
         double min_accept_start_time = *std::min_element(accept_start_time.begin(), accept_start_time.end());
         std::chrono::high_resolution_clock::time_point accept_end_time = std::chrono::high_resolution_clock::now();
-        double time_span3 = std::chrono::duration_cast<std::chrono::duration<double>>(accept_end_time.time_since_epoch()).count() - min_accept_start_time;
-        response->set_cross_rack_time(time_span3);
+        cross_rack_dur = std::chrono::duration_cast<std::chrono::duration<double>>(accept_end_time.time_since_epoch()).count() - min_accept_start_time;
         std::cout << "start to xor" << std::endl;
         char **buf_ptrs = new char*[cross_rack_num + 2];
         for(int i = 0; i < cross_rack_num; i++)
@@ -2138,7 +2140,7 @@ namespace ECProject
         xor_avx(cross_rack_num + 2, m_sys_config->BlockSize, (void**)buf_ptrs);
         std::chrono::high_resolution_clock::time_point cross_rack_xor_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> xor_time = std::chrono::duration_cast<std::chrono::duration<double>>(cross_rack_xor_end_time - cross_rack_xor_start_time);
-        response->set_cross_rack_xor_time(xor_time.count());
+        xor_dur = xor_time.count();
         for(int i = 0; i < cross_rack_num; i++)
         {
           delete cross_rack_bufs[i];
@@ -2146,14 +2148,15 @@ namespace ECProject
         delete cross_rack_bufs;
         delete buf_ptrs;
       }
-      else
-      {
-        response->set_cross_rack_time(0);
-        response->set_cross_rack_xor_time(0);
-        std::cout << "[Proxy" << m_self_cluster_id << "][Degrade read] decode success!" << std::endl;
-      }
     }
-  
+
+    const double disk_read = breakdown_timing::max_span_duration(
+        data_node_disk_io_start_time, data_node_disk_io_end_time);
+    const double net_read = breakdown_timing::max_span_duration(
+        data_node_network_start_time, data_node_network_end_time);
+    const double dn_grpc = breakdown_timing::grpc_delay_max(
+        data_node_grpc_notify_time, data_node_grpc_start_time);
+
     std::string replaced_node_ip = recovery_request->replaced_node_ip();
     int replaced_node_port = recovery_request->replaced_node_port();
     std::cout << "[Proxy" << m_self_cluster_id << "][Degraded] send to the client" << replaced_node_ip << ":" << replaced_node_port << std::endl;
@@ -2161,6 +2164,7 @@ namespace ECProject
     asio::ip::tcp::socket socket(io_context);
     asio::ip::tcp::resolver resolver(io_context);
     asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(replaced_node_ip, std::to_string(replaced_node_port));
+    std::chrono::high_resolution_clock::time_point net_send_start = std::chrono::high_resolution_clock::now();
     asio::connect(socket, endpoints);
     if(cross_rack_num){
       asio::write(socket, asio::buffer(real_res_buf, m_sys_config->BlockSize));
@@ -2168,6 +2172,11 @@ namespace ECProject
     else{
       asio::write(socket, asio::buffer(res_buf, m_sys_config->BlockSize));
     }
+    const double net_send = breakdown_timing::duration_seconds(
+        net_send_start, std::chrono::high_resolution_clock::now());
+    const double network = net_read + cross_rack_dur + net_send + dn_grpc;
+    const double decode = decode_dur + xor_dur;
+    breakdown_timing::publish_degraded_read(response, disk_read, network, decode);
     asio::error_code ignore_ec;
     socket.shutdown(asio::ip::tcp::socket::shutdown_send, ignore_ec);
     socket.close(ignore_ec);
@@ -2795,6 +2804,9 @@ namespace ECProject
         std::vector<double> data_node_grpc_notify_time(recovery_request->datanodeip_size(), 0.0);
         std::vector<double> data_node_grpc_start_time(recovery_request->datanodeip_size(), 0.0);
 
+        double decode_dur = 0.0;
+        double cross_rack_dur = 0.0;
+        double xor_dur = 0.0;
         int num_local = recovery_request->datanodeip_size();
         if (num_local > 0)
         {
@@ -2813,14 +2825,6 @@ namespace ECProject
               &data_node_grpc_notify_time[i], &data_node_grpc_start_time[i]));
           for (int i = 0; i < num_local; i++)
             get_threads[i].join();
-          if (!data_node_disk_io_start_time.empty()) {
-            response->set_disk_io_start_time(*std::min_element(data_node_disk_io_start_time.begin(), data_node_disk_io_start_time.end()));
-            response->set_disk_io_end_time(*std::max_element(data_node_disk_io_end_time.begin(), data_node_disk_io_end_time.end()));
-            response->set_network_start_time(*std::min_element(data_node_network_start_time.begin(), data_node_network_start_time.end()));
-            response->set_network_end_time(*std::max_element(data_node_network_end_time.begin(), data_node_network_end_time.end()));
-            response->set_data_node_grpc_notify_time(*std::min_element(data_node_grpc_notify_time.begin(), data_node_grpc_notify_time.end()));
-            response->set_data_node_grpc_start_time(*std::max_element(data_node_grpc_start_time.begin(), data_node_grpc_start_time.end()));
-          }
           bool all_true = std::all_of(local_status.get(), local_status.get() + num_local, [](bool val) { return val; });
           if (!all_true) {
             for (int i = 0; i < num_local; i++) std::free(get_bufs[i]);
@@ -2849,8 +2853,7 @@ namespace ECProject
           ec_init_tables(cols, rows, local_matrix.data(), g_tbls.data());
           ec_encode_data_avx2(m_sys_config->BlockSize, cols, rows, g_tbls.data(), block_ptrs.data(), out_ptrs.data());
           std::chrono::high_resolution_clock::time_point decode_end = std::chrono::high_resolution_clock::now();
-          response->set_decode_start_time(std::chrono::duration_cast<std::chrono::duration<double>>(decode_start.time_since_epoch()).count());
-          response->set_decode_end_time(std::chrono::duration_cast<std::chrono::duration<double>>(decode_end.time_since_epoch()).count());
+          decode_dur = breakdown_timing::duration_seconds(decode_start, decode_end);
           for (int i = 0; i < num_local; i++)
             std::free(get_bufs[i]);
         }
@@ -2860,15 +2863,13 @@ namespace ECProject
           std::vector<char*> cross_rack_bufs(cross_rack_num);
           for (int i = 0; i < cross_rack_num; i++)
             cross_rack_bufs[i] = static_cast<char*>(std::aligned_alloc(32, total_size));
-          std::vector<double> accept_start_time(cross_rack_num, 0.0);
+          std::chrono::high_resolution_clock::time_point cross_start = std::chrono::high_resolution_clock::now();
           std::vector<std::thread> get_from_proxies_threads;
           for (int i = 0; i < cross_rack_num; i++)
           {
-            get_from_proxies_threads.push_back(std::thread([i, this, total_size, &cross_rack_bufs, &accept_start_time]() mutable {
+            get_from_proxies_threads.push_back(std::thread([i, this, total_size, &cross_rack_bufs]() mutable {
               asio::ip::tcp::socket socket(this->io_context);
               this->acceptor.accept(socket);
-              accept_start_time[i] = std::chrono::duration_cast<std::chrono::duration<double>>(
-                  std::chrono::high_resolution_clock::now().time_since_epoch()).count();
               asio::error_code error;
               asio::read(socket, asio::buffer(cross_rack_bufs[i], total_size), error);
               asio::error_code ignore_ec;
@@ -2878,10 +2879,8 @@ namespace ECProject
           }
           for (int i = 0; i < cross_rack_num; i++)
             get_from_proxies_threads[i].join();
-          double min_accept = *std::min_element(accept_start_time.begin(), accept_start_time.end());
-          double accept_end = std::chrono::duration_cast<std::chrono::duration<double>>(
-              std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-          response->set_cross_rack_time(accept_end - min_accept);
+          cross_rack_dur = breakdown_timing::duration_seconds(
+              cross_start, std::chrono::high_resolution_clock::now());
           char *real_res_buf = static_cast<char*>(std::aligned_alloc(32, total_size));
           char **buf_ptrs = new char*[cross_rack_num + 2];
           for (int i = 0; i < cross_rack_num; i++)
@@ -2891,7 +2890,7 @@ namespace ECProject
           std::chrono::high_resolution_clock::time_point xor_start = std::chrono::high_resolution_clock::now();
           xor_avx(cross_rack_num + 2, static_cast<int>(total_size), (void**)buf_ptrs);
           std::chrono::high_resolution_clock::time_point xor_end = std::chrono::high_resolution_clock::now();
-          response->set_cross_rack_xor_time(std::chrono::duration_cast<std::chrono::duration<double>>(xor_end - xor_start).count());
+          xor_dur = breakdown_timing::duration_seconds(xor_start, xor_end);
           for (int i = 0; i < cross_rack_num; i++)
             std::free(cross_rack_bufs[i]);
           delete[] buf_ptrs;
@@ -2914,8 +2913,15 @@ namespace ECProject
             total_dest_disk += disk_t;
           }
         }
-        response->set_dest_data_node_network_time(total_dest_network);
-        response->set_dest_data_node_disk_io_time(total_dest_disk);
+        const double disk_read = breakdown_timing::max_span_duration(
+            data_node_disk_io_start_time, data_node_disk_io_end_time);
+        const double net_read = breakdown_timing::max_span_duration(
+            data_node_network_start_time, data_node_network_end_time);
+        const double dn_grpc = breakdown_timing::grpc_delay_max(
+            data_node_grpc_notify_time, data_node_grpc_start_time);
+        const double network = net_read + dn_grpc + cross_rack_dur + total_dest_network;
+        const double decode = decode_dur + xor_dur;
+        breakdown_timing::publish_recovery(response, disk_read, network, decode, total_dest_disk);
         std::free(res_buf);
         return grpc::Status::OK;
       }
@@ -2941,6 +2947,12 @@ namespace ECProject
       std::vector<double> data_node_grpc_notify_time(recovery_request->datanodeip_size(), 0.0);
       std::vector<double> data_node_grpc_start_time(recovery_request->datanodeip_size(), 0.0);
 
+      double decode_dur = 0.0;
+      double cross_rack_dur = 0.0;
+      double xor_dur = 0.0;
+      double dest_data_node_network_time = 0.0;
+      double dest_data_node_disk_io_time = 0.0;
+
       std::vector<std::thread> get_threads;
       for (int i = 0; i < recovery_request->datanodeip_size(); i++)
       {
@@ -2954,13 +2966,6 @@ namespace ECProject
         get_threads[i].join();
       }
 
-      response->set_disk_io_start_time(*std::min_element(data_node_disk_io_start_time.begin(), data_node_disk_io_start_time.end()));
-      response->set_disk_io_end_time(*std::max_element(data_node_disk_io_end_time.begin(), data_node_disk_io_end_time.end()));
-      response->set_network_start_time(*std::min_element(data_node_network_start_time.begin(), data_node_network_start_time.end()));
-      response->set_network_end_time(*std::max_element(data_node_network_end_time.begin(), data_node_network_end_time.end()));
-      response->set_data_node_grpc_notify_time(*std::min_element(data_node_grpc_notify_time.begin(), data_node_grpc_notify_time.end()));
-      response->set_data_node_grpc_start_time(*std::max_element(data_node_grpc_start_time.begin(), data_node_grpc_start_time.end()));
-      
       bool all_true = std::all_of(status.get(), status.get() + recovery_request->datanodeip_size(), [](bool val)
                                   { return val == true; });
       if (!all_true)
@@ -3012,8 +3017,7 @@ namespace ECProject
           exit(1);
         }
         std::chrono::high_resolution_clock::time_point t4 = std::chrono::high_resolution_clock::now();
-        response->set_decode_start_time(std::chrono::duration_cast<std::chrono::duration<double>>(t3.time_since_epoch()).count());
-        response->set_decode_end_time(std::chrono::duration_cast<std::chrono::duration<double>>(t4.time_since_epoch()).count());
+        decode_dur = breakdown_timing::duration_seconds(t3, t4);
 
         if(cross_rack_num){
           std::cout << "start to recover cross rack" << std::endl;
@@ -3023,17 +3027,15 @@ namespace ECProject
             cross_rack_bufs[i] = static_cast<char*>(std::aligned_alloc(32, m_sys_config->BlockSize));
           }
           std::vector<std::thread> get_from_proxies_threads;
-          std::vector<double> accept_start_time(cross_rack_num, 0.0);
+          std::chrono::high_resolution_clock::time_point cross_start = std::chrono::high_resolution_clock::now();
           for(int i = 0; i < cross_rack_num; i++)
           {
-            get_from_proxies_threads.push_back(std::thread([i, this, &cross_rack_bufs, &accept_start_time]()mutable{
+            get_from_proxies_threads.push_back(std::thread([i, this, &cross_rack_bufs]()mutable{
               //asio::io_context io_context;
               asio::ip::tcp::socket socket(this->io_context);
               //asio::ip::tcp::resolver resolver(io_context);
               std::cout << "connecting to proxy" << std::endl;
               this->acceptor.accept(socket);
-              std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-              accept_start_time[i] = std::chrono::duration_cast<std::chrono::duration<double>>(start.time_since_epoch()).count();
               std::cout << "connected to porxy" << std::endl;
               asio::error_code error;
               asio::read(socket, asio::buffer(cross_rack_bufs[i], this->m_sys_config->BlockSize), error);
@@ -3051,10 +3053,8 @@ namespace ECProject
           {
             get_from_proxies_threads[i].join();
           }
-          double min_accept_start_time = *std::min_element(accept_start_time.begin(), accept_start_time.end());
-          std::chrono::high_resolution_clock::time_point accept_end_time = std::chrono::high_resolution_clock::now();
-          double time_span3 = std::chrono::duration_cast<std::chrono::duration<double>>(accept_end_time.time_since_epoch()).count() - min_accept_start_time;
-          response->set_cross_rack_time(time_span3);
+          cross_rack_dur = breakdown_timing::duration_seconds(
+              cross_start, std::chrono::high_resolution_clock::now());
           std::cout << "start to xor" << std::endl;
           char **buf_ptrs = new char*[cross_rack_num + 2];
           for(int i = 0; i < cross_rack_num; i++)
@@ -3066,8 +3066,7 @@ namespace ECProject
           std::chrono::high_resolution_clock::time_point t7 = std::chrono::high_resolution_clock::now();
           xor_avx(cross_rack_num + 2, m_sys_config->BlockSize, (void**)buf_ptrs);
           std::chrono::high_resolution_clock::time_point t8 = std::chrono::high_resolution_clock::now();
-          std::chrono::duration<double> time_span4 = std::chrono::duration_cast<std::chrono::duration<double>>(t8 - t7);
-          response->set_cross_rack_xor_time(time_span4.count());
+          xor_dur = breakdown_timing::duration_seconds(t7, t8);
           for(int i = 0; i < cross_rack_num; i++)
           {
             delete cross_rack_bufs[i];
@@ -3077,13 +3076,10 @@ namespace ECProject
         }
         else
         {
-          response->set_cross_rack_time(0);
-          response->set_cross_rack_xor_time(0);
           std::cout << "[Proxy" << m_self_cluster_id << "][Degrade read] decode success!" << std::endl;
         }
         std::cout << "[Proxy" << m_self_cluster_id << "][Recovery] send to the replaced node" << std::endl;
         // send to the replaced node
-        double dest_data_node_network_time, dest_data_node_disk_io_time;
         if(cross_rack_num){
           RecoveryToDatanodeBreakdown(failed_block_key.c_str(), failed_block_id, real_res_buf, replaced_node_ip.c_str(), replaced_node_port, 
             &dest_data_node_network_time, &dest_data_node_disk_io_time);
@@ -3092,9 +3088,16 @@ namespace ECProject
           RecoveryToDatanodeBreakdown(failed_block_key.c_str(), failed_block_id, res_buf, replaced_node_ip.c_str(), replaced_node_port, 
             &dest_data_node_network_time, &dest_data_node_disk_io_time);
         }
-        response->set_dest_data_node_network_time(dest_data_node_network_time);
-        response->set_dest_data_node_disk_io_time(dest_data_node_disk_io_time);
       }
+      const double disk_read = breakdown_timing::max_span_duration(
+          data_node_disk_io_start_time, data_node_disk_io_end_time);
+      const double net_read = breakdown_timing::max_span_duration(
+          data_node_network_start_time, data_node_network_end_time);
+      const double dn_grpc = breakdown_timing::grpc_delay_max(
+          data_node_grpc_notify_time, data_node_grpc_start_time);
+      const double network = net_read + dn_grpc + cross_rack_dur + dest_data_node_network_time;
+      const double decode = decode_dur + xor_dur;
+      breakdown_timing::publish_recovery(response, disk_read, network, decode, dest_data_node_disk_io_time);
       delete res_buf;
       delete real_res_buf;
       for(int i = 0; i < recovery_request->datanodeip_size(); i++)
