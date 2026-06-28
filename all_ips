@@ -1,9 +1,8 @@
 # 全部节点 IP（顺序任意；运行 generate_xml_from_ini.py 后会按数值排序并分配角色）
 # 期望数量: client_num + 1 + cluster_num * (1 + datanode_per_cluster)
-# 当前 cluster.ini: client_num=3, cluster_num=17, datanode_per_cluster=4 -> 3+1+17*5 = 89
+# 当前 cluster.ini: client_num=2, cluster_num=17, datanode_per_cluster=4 -> 2+1+17*5 = 88
 172.16.0.1
 172.16.0.3
-172.16.0.4
 172.16.0.5
 172.16.0.10
 172.16.0.11
