@@ -1,8 +1,7 @@
 #!/bin/bash
 # 在 leader client（client_hosts 第一个）上执行：
 # 1. 本地写 1 条 stripe
-# 2. N 轮：所有 client 并行读同一条 stripe，等全部完成后再下一轮
-# 3. 汇总：按并行墙钟时间统计（与 main_client 原 normal read 字段对齐）
+# 2. 重复 N 轮：所有 client 并行各读 1 次；并行时间 = max(各 client 的 get time)，与 main_client 内 get 计时一致
 #
 # 用法:
 #   ./run_multi_client_read.sh [cluster.ini] [stripe_id] [rounds]
@@ -12,6 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG="${1:-$SCRIPT_DIR/project/config/cluster.ini}"
 STRIPE_ID="${2:-0}"
 ROUNDS="${3:-5}"
+PARAM_XML="$SCRIPT_DIR/project/config/parameterConfiguration.xml"
 
 get_ini() {
   local section="$1" key="$2"
@@ -45,6 +45,7 @@ IP_MODE=$(get_ini cluster ip_mode)
 [ -n "$SSH_USER" ] || { echo "Missing [ssh] user in $CONFIG"; exit 1; }
 [ -f "$IP_LAYOUT" ] || { echo "Missing $IP_LAYOUT"; exit 1; }
 [ -f "$BUILD" ] || { echo "Missing $BUILD (run compile first)"; exit 1; }
+[ -f "$PARAM_XML" ] || { echo "Missing $PARAM_XML"; exit 1; }
 [ -n "$CLIENT_PORT_BASE" ] || CLIENT_PORT_BASE=44444
 
 if [ "$IP_MODE" = "all_ips" ]; then
@@ -56,13 +57,25 @@ fi
 CLIENT_NUM="${#CLIENT_IPS[@]}"
 [ "$CLIENT_NUM" -ge 1 ] || { echo "No client IPs configured"; exit 1; }
 
+STRIPE_MB=$(python3 - "$PARAM_XML" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+root = ET.parse(sys.argv[1]).getroot()
+k = int(root.find("k").text)
+block_size = int(root.find("BlockSize").text)
+print(k * block_size / 1024 / 1024)
+PY
+)
+
 LEADER_IP="${CLIENT_IPS[0]}"
 LEADER_PORT=$CLIENT_PORT_BASE
 LOG_DIR=$(mktemp -d)
+SUMMARY_FILE="$LOG_DIR/aggregate_summary.tsv"
 trap 'rm -rf "$LOG_DIR"' EXIT
 
-echo "=== Multi-client normal read (leader: $LEADER_IP) ==="
-echo "clients=$CLIENT_NUM stripe_id=$STRIPE_ID rounds=$ROUNDS port_base=$CLIENT_PORT_BASE"
+echo "=== Multi-client normal read (parallel aggregate) ==="
+echo "leader=$LEADER_IP clients=$CLIENT_NUM stripe_id=$STRIPE_ID stripe_mb=$STRIPE_MB rounds=$ROUNDS"
 
 run_on_client() {
   local cip="$1" cport="$2" extra_args="$3"
@@ -74,89 +87,17 @@ run_on_client() {
   fi
 }
 
-print_total_summary() {
-  python3 - "$LOG_DIR" "$ROUNDS" "$CLIENT_NUM" "$STRIPE_ID" <<'PY'
+parse_client_log() {
+  python3 - "$1" <<'PY'
 import re, sys
 
-log_dir, rounds, client_num = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-
-def parse_client_log(path):
-    try:
-        text = open(path, encoding="utf-8", errors="replace").read()
-    except OSError:
-        return None, None
-    m_t = re.search(r"get time:\s*([0-9.eE+-]+)", text)
-    m_s = re.search(r"Speed:\s*([0-9.eE+-]+)\s*MB/s", text)
-    t = float(m_t.group(1)) if m_t else None
-    s = float(m_s.group(1)) if m_s else None
-    return t, s
-
-round_walls = []
-round_agg_speeds = []
-stripe_mbs = []
-per_client_times = []
-
-for r in range(1, rounds + 1):
-    wall_path = f"{log_dir}/round{r}_wall.txt"
-    try:
-        wall = float(open(wall_path, encoding="utf-8").read().strip())
-    except (OSError, ValueError):
-        print(f"Warning: missing wall time for round {r}", file=sys.stderr)
-        continue
-
-    rt, rs = [], []
-    for i in range(client_num):
-        t, s = parse_client_log(f"{log_dir}/round{r}_client{i}.log")
-        if t is not None:
-            rt.append(t)
-            per_client_times.append(t)
-        if s is not None:
-            rs.append(s)
-        if t is not None and s is not None and t > 0:
-            stripe_mbs.append(s * t)
-
-    if not rt:
-        print(f"Warning: round {r} has no successful client reads", file=sys.stderr)
-        continue
-
-    round_walls.append(wall)
-    # 并行一轮：N 个 client 各读 1 条 stripe，集群交付量 = N * stripe_mb，耗时 = 墙钟 wall
-    stripe_mb = stripe_mbs[-1] if stripe_mbs else (sum(rs) / len(rs) * sum(rt) / len(rt) if rs and rt else 0.0)
-    agg_speed = client_num * stripe_mb / wall if wall > 0 else 0.0
-    round_agg_speeds.append(agg_speed)
-
-    print(f"  Round {r}: wall={wall:.6f}s  "
-          f"(client get time min={min(rt):.6f}s max={max(rt):.6f}s)  "
-          f"aggregate Speed={agg_speed:.0f} MB/s")
-
-if not round_walls:
-    print("Normal read test summary: no successful rounds")
-    sys.exit(0)
-
-total_wall = sum(round_walls)
-avg_wall = total_wall / len(round_walls)
-total_reads = len(round_walls) * client_num
-stripe_mb = sum(stripe_mbs) / len(stripe_mbs) if stripe_mbs else 0.0
-total_data_mb = total_reads * stripe_mb
-
-throughput = total_reads / total_wall if total_wall > 0 else 0.0
-speed = total_data_mb / total_wall if total_wall > 0 else 0.0
-max_speed = max(round_agg_speeds) if round_agg_speeds else 0.0
-min_speed = min(round_agg_speeds) if round_agg_speeds else 0.0
-
-print("")
-print("=== Normal read test summary (multi-client parallel) ===")
-print(f"clients={client_num}  rounds={len(round_walls)}  stripe_id={sys.argv[4]}")
-print(f"Total time: {total_wall:.6f}   # 各轮并行墙钟之和（leader 实测）")
-print(f"Average time: {avg_wall:.6f}   # 平均每轮并行耗时")
-print(f"Throughput (stripes/s): {throughput:.6f}   # {total_reads} 次读 / 总墙钟")
-print(f"Speed: {speed:.0f} MB/s   # 集群聚合带宽 = 总读取数据量 / 总墙钟")
-print(f"Max speed: {max_speed:.0f} MB/s   # 各轮聚合带宽的最大值")
-print(f"Min speed: {min_speed:.0f} MB/s   # 各轮聚合带宽的最小值")
-if per_client_times:
-    print(f"(per-client get time avg={sum(per_client_times)/len(per_client_times):.6f}s, "
-          f"min={min(per_client_times):.6f}s, max={max(per_client_times):.6f}s — 仅供参考)")
-print("Normal read test end")
+text = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+m_t = re.search(r"get time:\s*([0-9.eE+-]+)", text)
+if not m_t:
+    m_t = re.search(r"Average time:\s*([0-9.eE+-]+)", text)
+m_s = re.search(r"Speed:\s*([0-9.eE+-]+)\s*MB/s", text)
+if m_t and m_s:
+    print(f"{m_t.group(1)}\t{m_s.group(1)}")
 PY
 }
 
@@ -168,7 +109,9 @@ echo "Waiting 5s ..."
 sleep 5
 
 echo ""
-echo "[2/2] $ROUNDS rounds of parallel read (stripe $STRIPE_ID) ..."
+echo "[2/2] $ROUNDS rounds of parallel read (stripe $STRIPE_ID, $CLIENT_NUM clients) ..."
+: >"$SUMMARY_FILE"
+
 for ((r = 1; r <= ROUNDS; r++)); do
   echo "--- Round $r/$ROUNDS ---"
   PIDS=()
@@ -178,33 +121,108 @@ for ((r = 1; r <= ROUNDS; r++)); do
     CPORT=$((CLIENT_PORT_BASE + i))
     LOG_FILE="$LOG_DIR/round${r}_client${i}.log"
     (
-      echo "[client$i $CIP:$CPORT]"
-      run_on_client "$CIP" "$CPORT" "--read-stripe $STRIPE_ID"
+      run_on_client "$CIP" "$CPORT" "--read-stripe $STRIPE_ID --read-rounds 1"
     ) >"$LOG_FILE" 2>&1 &
     PIDS+=($!)
   done
+
   FAIL=0
   for pid in "${PIDS[@]}"; do
     wait "$pid" || FAIL=1
   done
   T1=$(date +%s.%N)
-  python3 - "$T0" "$T1" >"$LOG_DIR/round${r}_wall.txt" <<'PY'
+
+  if [ "$FAIL" -ne 0 ]; then
+    echo "Round $r failed. Logs: $LOG_DIR/round${r}_client*.log"
+    for ((i = 0; i < CLIENT_NUM; i++)); do
+      echo "=== client$i (${CLIENT_IPS[$i]}:$((CLIENT_PORT_BASE + i))) ==="
+      cat "$LOG_DIR/round${r}_client${i}.log"
+    done
+    exit 1
+  fi
+
+  LAUNCH_WALL=$(python3 - "$T0" "$T1" <<'PY'
 import sys
 print(float(sys.argv[2]) - float(sys.argv[1]))
 PY
-  if [ "$FAIL" -ne 0 ]; then
-    echo "Round $r failed. Logs: $LOG_DIR/round${r}_client*.log"
-    exit 1
-  fi
+)
+
+  GET_TIMES=()
+  GET_SPEEDS=()
   for ((i = 0; i < CLIENT_NUM; i++)); do
-    echo "--- client$i (${CLIENT_IPS[$i]}) ---"
-    cat "$LOG_DIR/round${r}_client${i}.log"
+    parsed=$(parse_client_log "$LOG_DIR/round${r}_client${i}.log" || true)
+    if [ -z "$parsed" ]; then
+      echo "Round $r: missing get time in client$i log"
+      cat "$LOG_DIR/round${r}_client${i}.log"
+      exit 1
+    fi
+    get_t=${parsed%%$'\t'*}
+    speed=${parsed#*$'\t'}
+    GET_TIMES+=("$get_t")
+    GET_SPEEDS+=("$speed")
+  done
+
+  WALL=$(python3 - "${GET_TIMES[@]}" <<'PY'
+import sys
+print(max(float(x) for x in sys.argv[1:]))
+PY
+)
+  TOTAL_MB=$(python3 - "$CLIENT_NUM" "$STRIPE_MB" <<'PY'
+import sys
+print(float(sys.argv[1]) * float(sys.argv[2]))
+PY
+)
+  AGG=$(python3 - "$TOTAL_MB" "$WALL" <<'PY'
+import sys
+total_mb, wall = float(sys.argv[1]), float(sys.argv[2])
+print(total_mb / wall if wall > 0 else 0.0)
+PY
+)
+
+  echo "$r	$WALL	$AGG" >>"$SUMMARY_FILE"
+  echo "Parallel get time (max over clients): ${WALL}s"
+  echo "Parallel aggregate throughput: ${AGG} MB/s  (${CLIENT_NUM} clients x ${STRIPE_MB} MB / ${WALL}s)"
+  echo "Launch wall time (incl. ssh/startup, reference only): ${LAUNCH_WALL}s"
+
+  for ((i = 0; i < CLIENT_NUM; i++)); do
+    echo "  client$i (${CLIENT_IPS[$i]}): get time=${GET_TIMES[$i]}s  speed=${GET_SPEEDS[$i]} MB/s"
   done
 done
 
 echo ""
-echo "Per-round parallel summary:"
-print_total_summary
+python3 - "$SUMMARY_FILE" "$ROUNDS" "$CLIENT_NUM" "$STRIPE_ID" "$STRIPE_MB" <<'PY'
+import sys
+
+path, rounds, client_num, stripe_id, stripe_mb = sys.argv[1:]
+rounds = int(rounds)
+client_num = int(client_num)
+stripe_mb = float(stripe_mb)
+
+walls, aggs = [], []
+with open(path, encoding="utf-8") as f:
+    for line in f:
+        _, wall, agg = line.rstrip("\n").split("\t")
+        walls.append(float(wall))
+        aggs.append(float(agg))
+
+if not aggs:
+    print("No successful rounds")
+    sys.exit(0)
+
+total_wall = sum(walls)
+total_reads = len(aggs) * client_num
+total_data_mb = total_reads * stripe_mb
+
+print("=== Multi-client parallel read summary ===")
+print(f"clients={client_num}  rounds={len(aggs)}  stripe_id={stripe_id}  stripe_mb={stripe_mb}")
+print(f"Average parallel get time (max over clients per round): {sum(walls) / len(walls):.6f}s")
+print(f"Average parallel aggregate throughput: {sum(aggs) / len(aggs):.0f} MB/s")
+print(f"Max parallel aggregate throughput: {max(aggs):.0f} MB/s")
+print(f"Min parallel aggregate throughput: {min(aggs):.0f} MB/s")
+print(f"Overall aggregate throughput: {total_data_mb / total_wall:.0f} MB/s  "
+      f"({total_reads} reads, {total_data_mb:.0f} MB / {total_wall:.6f}s wall sum)")
+print("Multi-client normal read test end")
+PY
 
 echo ""
-echo "All $ROUNDS rounds completed. Logs: $LOG_DIR"
+echo "Logs: $LOG_DIR"

@@ -8,16 +8,16 @@
     <!--67108864-->
     <DatanodeNumPerCluster>4</DatanodeNumPerCluster>
     <ClusterNum>17</ClusterNum>
-    <CoordinatorIP>172.16.0.5</CoordinatorIP>
+    <CoordinatorIP>172.16.0.10</CoordinatorIP>
     <CoordinatorPort>55555</CoordinatorPort>
     <!-- AppendMode: REP_MODE; UNILRC_MODE; CACHED_MODE -->
     <AppendMode>UNILRC_MODE</AppendMode>
     <alpha>2</alpha>
     <!-- LRC: UniLRC; LotusLRC; AzureLRC; OptimalLRC; UniformLRC -->
-    <CodeType>OptimalLRC</CodeType>
-    <k>96</k>
-    <r>5</r>
-    <z>4</z>
+    <CodeType>LotusLRC</CodeType>
+    <k>48</k>
+    <r>2</r>
+    <z>8</z>
     <!-- <CodeType>UniformLRC</CodeType>
     <k>30</k>
     <r>6</r>

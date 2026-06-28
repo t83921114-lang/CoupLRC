@@ -273,6 +273,7 @@ struct ClientArgs
     int client_port = 44444;
     int populate = -1;
     int read_stripe = -1;
+    int read_rounds = 5;
 };
 
 void print_client_usage(const char *prog)
@@ -282,7 +283,8 @@ void print_client_usage(const char *prog)
         << "  --client-ip IP        (default: 172.16.0.1)\n"
         << "  --client-port PORT    (default: 44444)\n"
         << "  --populate N          写 N 条 stripe 后退出\n"
-        << "  --read-stripe ID      读一条 stripe 后退出（normal read）\n"
+        << "  --read-stripe ID      读同一条 stripe N 次后退出（normal read）\n"
+        << "  --read-rounds N       与 --read-stripe 配合，默认 5\n"
         << "  无上述选项时走 legacy：写 9 条 stripe + recovery 测试\n";
 }
 
@@ -307,6 +309,8 @@ bool parse_client_args(int argc, char **argv, ClientArgs &args)
             args.populate = std::stoi(need_val("--populate"));
         else if (arg == "--read-stripe")
             args.read_stripe = std::stoi(need_val("--read-stripe"));
+        else if (arg == "--read-rounds")
+            args.read_rounds = std::stoi(need_val("--read-rounds"));
         else if (arg == "--help" || arg == "-h")
         {
             print_client_usage(argv[0]);
@@ -324,35 +328,73 @@ bool parse_client_args(int argc, char **argv, ClientArgs &args)
         std::cerr << "Cannot use --populate and --read-stripe together" << std::endl;
         return false;
     }
-    if (args.populate < -1 || args.read_stripe < -1)
+    if (args.read_stripe < -1)
     {
         std::cerr << "Invalid --populate / --read-stripe value" << std::endl;
+        return false;
+    }
+    if (args.read_rounds < 1)
+    {
+        std::cerr << "Invalid --read-rounds value (must be >= 1)" << std::endl;
         return false;
     }
     return true;
 }
 
-bool run_normal_read_one_stripe(ECProject::Client &client, int stripe_id, double block_size, int k)
+bool run_normal_read_stripe_benchmark(ECProject::Client &client, int stripe_id, double block_size,
+                                      int k, int rounds)
 {
-    size_t data_size;
+    const double recovered_mb = block_size * static_cast<double>(k);
     std::string key = std::to_string(stripe_id);
-    std::cout << "Normal read test start" << std::endl;
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    std::shared_ptr<char[]> data = client.get(key, data_size);
-    if (!data)
+    std::vector<std::chrono::duration<double>> read_time_spans;
+    std::cout << "Normal read test start (stripe " << stripe_id << ", " << rounds << " rounds)"
+              << std::endl;
+    for (int i = 0; i < rounds; i++)
     {
-        std::cout << "Get operation failed" << std::endl;
+        size_t data_size;
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+        std::shared_ptr<char[]> data = client.get(key, data_size);
+        if (!data)
+        {
+            std::cout << "[" << i << "th] Get operation failed" << std::endl;
+            continue;
+        }
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> time_span =
+            std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        read_time_spans.push_back(time_span);
+        std::cout << "get time: " << time_span.count() << std::endl;
+        if (time_span.count() > 0)
+            std::cout << "[" << i << "th] read throughput: "
+                      << recovered_mb / time_span.count() << " MB/s" << std::endl;
+    }
+    if (read_time_spans.empty())
+    {
+        std::cout << "Normal read test: no successful samples" << std::endl;
         return false;
     }
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> time_span =
-        std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    std::cout << "get time: " << time_span.count() << std::endl;
-    if (time_span.count() > 0)
-        std::cout << "Speed: " << static_cast<size_t>(block_size) * k / time_span.count() << " MB/s"
-                  << std::endl;
-    std::cout << "Normal read test end" << std::endl;
-    return true;
+    std::chrono::duration<double> read_total_time_span =
+        std::accumulate(read_time_spans.begin(), read_time_spans.end(),
+                        std::chrono::duration<double>::zero());
+    std::cout << "Total time: " << read_total_time_span.count() << std::endl;
+    std::cout << "Average time: "
+              << read_total_time_span.count() / static_cast<double>(read_time_spans.size())
+              << std::endl;
+    std::cout << "Throughput (stripes/s): "
+              << static_cast<double>(read_time_spans.size()) / read_total_time_span.count()
+              << std::endl;
+    std::chrono::duration<double> read_max_time_span =
+        *std::max_element(read_time_spans.begin(), read_time_spans.end());
+    std::chrono::duration<double> read_min_time_span =
+        *std::min_element(read_time_spans.begin(), read_time_spans.end());
+    const double avg_time =
+        read_total_time_span.count() / static_cast<double>(read_time_spans.size());
+    std::cout << "Speed: " << recovered_mb / avg_time << " MB/s" << std::endl;
+    std::cout << "Max speed: " << recovered_mb / read_min_time_span.count() << " MB/s" << std::endl;
+    std::cout << "Min speed: " << recovered_mb / read_max_time_span.count() << " MB/s" << std::endl;
+  print_throughput_summary("Normal read", read_time_spans, recovered_mb);
+  std::cout << "Normal read test end" << std::endl;
+  return true;
 }
 
 int main(int argc, char **argv)
@@ -414,7 +456,10 @@ int main(int argc, char **argv)
     int n = k + r + z;
 
     if (args.read_stripe >= 0)
-        return run_normal_read_one_stripe(client, args.read_stripe, block_size, k) ? 0 : -1;
+        return run_normal_read_stripe_benchmark(client, args.read_stripe, block_size, k,
+                                                args.read_rounds)
+                   ? 0
+                   : -1;
 
     if (args.populate >= 0)
     {
@@ -449,7 +494,7 @@ int main(int argc, char **argv)
     sleep(5);
 
     {
- /*
+ 
     // 读性能测试：Normal read -> Degraded read -> Maintenance-robust read（共用上方预写的 stripe）
     std::cout << "Normal read test start" << std::endl;
     std::vector<std::chrono::duration<double>> read_time_spans;
@@ -481,7 +526,7 @@ int main(int argc, char **argv)
     std::cout << std::endl;
 
 
-
+/*
     //for degraded read test 
     std::vector<std::chrono::duration<double>> degraded_read_time_spans;
     std::cout << "Degraded read test start" << std::endl;
