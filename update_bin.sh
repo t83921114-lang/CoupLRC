@@ -144,6 +144,7 @@ project/config/parameterConfiguration.xml
 all_ips
 hosts
 proxy_hosts
+client_hosts
 EOF
 
 cat >"$FILELIST_DN" <<'EOF'
@@ -154,6 +155,7 @@ project/config/parameterConfiguration.xml
 all_ips
 hosts
 proxy_hosts
+client_hosts
 EOF
 
 cat >"$FILELIST_COORD" <<'EOF'
@@ -164,6 +166,7 @@ project/config/parameterConfiguration.xml
 all_ips
 hosts
 proxy_hosts
+client_hosts
 EOF
 
 sync_group() {

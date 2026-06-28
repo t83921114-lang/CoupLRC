@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
 从 all_ips 读取全部 IP，排序后分配角色：
-  最小 IP -> client
-  次小 IP -> coordinator
+  最小的 client_num 个 IP -> client（多机 client 测试）
+  下一个 IP -> coordinator
   剩余按 cluster.ini 分组：每组 1 proxy + datanode_per_cluster datanode
+
+期望 IP 数 = client_num + 1 + cluster_num * (1 + datanode_per_cluster)
 """
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ DEFAULT_INI = CONFIG_DIR / "cluster.ini"
 @dataclass
 class ClusterLayout:
     client_ip: str
+    client_ips: list[str]
     coordinator_ip: str
     first_proxy_ip: str
     clusters: list[dict]
@@ -74,23 +77,25 @@ def allocate_all_ips(
     raw_ips: list[str],
     cluster_num: int,
     dn_per: int,
+    client_num: int,
     first_port: int,
     dn_start: int,
 ) -> ClusterLayout:
     group_size = 1 + dn_per
-    expected = 2 + cluster_num * group_size
+    expected = client_num + 1 + cluster_num * group_size
     if len(raw_ips) != expected:
         print(
             f"Error: all_ips count {len(raw_ips)} != expected {expected} "
-            f"(2 + {cluster_num} * (1 + {dn_per}))",
+            f"({client_num} client + 1 coordinator + {cluster_num} * (1 + {dn_per}))",
             file=sys.stderr,
         )
         sys.exit(1)
 
     sorted_ips = sort_ips(raw_ips)
-    client_ip = sorted_ips[0]
-    coordinator_ip = sorted_ips[1]
-    node_ips = sorted_ips[2:]
+    client_ips = sorted_ips[:client_num]
+    client_ip = client_ips[0]
+    coordinator_ip = sorted_ips[client_num]
+    node_ips = sorted_ips[client_num + 1 :]
 
     clusters: list[dict] = []
     proxy_hosts: list[str] = []
@@ -108,6 +113,7 @@ def allocate_all_ips(
 
     return ClusterLayout(
         client_ip=client_ip,
+        client_ips=client_ips,
         coordinator_ip=coordinator_ip,
         first_proxy_ip=proxy_hosts[0],
         clusters=clusters,
@@ -162,6 +168,7 @@ def compute_distributed_layout(cfg: configparser.ConfigParser) -> ClusterLayout:
     all_hosts = sort_ips([client_ip, coordinator_ip] + list(dict.fromkeys(node_ips)))
     return ClusterLayout(
         client_ip=client_ip,
+        client_ips=[client_ip],
         coordinator_ip=coordinator_ip,
         first_proxy_ip=proxy_hosts[0],
         clusters=clusters,
@@ -181,6 +188,7 @@ def compute_layout(cfg: configparser.ConfigParser, ini_path: Path) -> ClusterLay
             raw_ips,
             int(cfg["cluster"]["cluster_num"]),
             int(cfg["cluster"]["datanode_per_cluster"]),
+            int(cfg["cluster"].get("client_num", "1")),
             int(cfg["cluster"]["first_proxy_port"]),
             int(cfg["cluster"]["datanode_port_start"]),
         )
@@ -210,6 +218,7 @@ def main_cli() -> None:
             "node-ips",
             "proxy-ips",
             "client-ip",
+            "client-ips",
             "coordinator-ip",
             "all-hosts",
         ],
@@ -227,6 +236,9 @@ def main_cli() -> None:
             print(ip)
     elif args.format == "client-ip":
         print(layout.client_ip)
+    elif args.format == "client-ips":
+        for ip in layout.client_ips:
+            print(ip)
     elif args.format == "coordinator-ip":
         print(layout.coordinator_ip)
     elif args.format == "all-hosts":

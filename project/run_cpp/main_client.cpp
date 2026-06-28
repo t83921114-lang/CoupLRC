@@ -108,6 +108,39 @@ void print_throughput_summary(const char *test_name,
     std::cout << "Min throughput: " << min_tp << " MB/s" << std::endl;
 }
 
+// 每个样本恢复数据量不同时使用（全节点/双节点修复等）
+void print_throughput_summary_per_sample(
+    const char *test_name,
+    const std::vector<std::chrono::duration<double>> &time_spans,
+    const std::vector<double> &recovered_mbs)
+{
+    if (time_spans.empty() || time_spans.size() != recovered_mbs.size())
+    {
+        std::cout << test_name << ": no successful samples" << std::endl;
+        return;
+    }
+    std::vector<double> throughputs;
+    throughputs.reserve(time_spans.size());
+    for (size_t i = 0; i < time_spans.size(); ++i)
+    {
+        if (time_spans[i].count() <= 0)
+            continue;
+        throughputs.push_back(recovered_mbs[i] / time_spans[i].count());
+    }
+    if (throughputs.empty())
+    {
+        std::cout << test_name << ": no valid timing samples" << std::endl;
+        return;
+    }
+    const double avg = std::accumulate(throughputs.begin(), throughputs.end(), 0.0) /
+                       static_cast<double>(throughputs.size());
+    const double max_tp = *std::max_element(throughputs.begin(), throughputs.end());
+    const double min_tp = *std::min_element(throughputs.begin(), throughputs.end());
+    std::cout << "Average throughput: " << avg << " MB/s" << std::endl;
+    std::cout << "Max throughput: " << max_tp << " MB/s" << std::endl;
+    std::cout << "Min throughput: " << min_tp << " MB/s" << std::endl;
+}
+
 // Average/Max/Min recovery time over samples (seconds)
 void print_recovery_time_summary(const char *test_name,
                                  const std::vector<std::chrono::duration<double>> &time_spans)
@@ -234,6 +267,94 @@ std::vector<std::pair<int, int>> sample_unique_node_pairs(int count, int total_n
 
 } // namespace
 
+struct ClientArgs
+{
+    std::string client_ip = "172.16.0.1";
+    int client_port = 44444;
+    int populate = -1;
+    int read_stripe = -1;
+};
+
+void print_client_usage(const char *prog)
+{
+    std::cerr
+        << "Usage: " << prog << " [options]\n"
+        << "  --client-ip IP        (default: 172.16.0.1)\n"
+        << "  --client-port PORT    (default: 44444)\n"
+        << "  --populate N          写 N 条 stripe 后退出\n"
+        << "  --read-stripe ID      读一条 stripe 后退出（normal read）\n"
+        << "  无上述选项时走 legacy：写 9 条 stripe + recovery 测试\n";
+}
+
+bool parse_client_args(int argc, char **argv, ClientArgs &args)
+{
+    for (int i = 1; i < argc; ++i)
+    {
+        std::string arg = argv[i];
+        auto need_val = [&](const char *name) -> std::string {
+            if (i + 1 >= argc)
+            {
+                std::cerr << "Missing value for " << name << std::endl;
+                std::exit(1);
+            }
+            return argv[++i];
+        };
+        if (arg == "--client-ip")
+            args.client_ip = need_val("--client-ip");
+        else if (arg == "--client-port")
+            args.client_port = std::stoi(need_val("--client-port"));
+        else if (arg == "--populate")
+            args.populate = std::stoi(need_val("--populate"));
+        else if (arg == "--read-stripe")
+            args.read_stripe = std::stoi(need_val("--read-stripe"));
+        else if (arg == "--help" || arg == "-h")
+        {
+            print_client_usage(argv[0]);
+            std::exit(0);
+        }
+        else
+        {
+            std::cerr << "Unknown argument: " << arg << std::endl;
+            print_client_usage(argv[0]);
+            std::exit(1);
+        }
+    }
+    if (args.populate >= 0 && args.read_stripe >= 0)
+    {
+        std::cerr << "Cannot use --populate and --read-stripe together" << std::endl;
+        return false;
+    }
+    if (args.populate < -1 || args.read_stripe < -1)
+    {
+        std::cerr << "Invalid --populate / --read-stripe value" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+bool run_normal_read_one_stripe(ECProject::Client &client, int stripe_id, double block_size, int k)
+{
+    size_t data_size;
+    std::string key = std::to_string(stripe_id);
+    std::cout << "Normal read test start" << std::endl;
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    std::shared_ptr<char[]> data = client.get(key, data_size);
+    if (!data)
+    {
+        std::cout << "Get operation failed" << std::endl;
+        return false;
+    }
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> time_span =
+        std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    std::cout << "get time: " << time_span.count() << std::endl;
+    if (time_span.count() > 0)
+        std::cout << "Speed: " << static_cast<size_t>(block_size) * k / time_span.count() << " MB/s"
+                  << std::endl;
+    std::cout << "Normal read test end" << std::endl;
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     char buff[256];
@@ -252,11 +373,18 @@ int main(int argc, char **argv)
     //std::string sys_config_path = "/home/GuanTian/lql/UniLRC/project/config/parameterConfiguration.xml";
     std::cout << "Current working directory: " << sys_config_path << std::endl;
 
+    ClientArgs args;
+    if (!parse_client_args(argc, argv, args))
+        return -1;
+
     const ECProject::Config *config = ECProject::Config::getInstance(sys_config_path);
-    std::string client_ip = "172.16.0.1";
-    int client_port = 44444;
-    ECProject::Client client(client_ip, client_port, config->CoordinatorIP + ":" + std::to_string(config->CoordinatorPort), sys_config_path);
-    std::cout << client.sayHelloToCoordinatorByGrpc("Client ID: " + client_ip + ":" + std::to_string(client_port)) << std::endl;
+    ECProject::Client client(args.client_ip, args.client_port,
+                             config->CoordinatorIP + ":" + std::to_string(config->CoordinatorPort),
+                             sys_config_path);
+    std::cout << "Client " << args.client_ip << ":" << args.client_port << std::endl;
+    std::cout << client.sayHelloToCoordinatorByGrpc("Client ID: " + args.client_ip + ":" +
+                                                    std::to_string(args.client_port))
+              << std::endl;
 
     std::vector<int> parameters = client.get_parameters();
     int k = parameters[0];
@@ -284,26 +412,43 @@ int main(int argc, char **argv)
     }
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
-    
-    int stripe_num = 9;
 
-    size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
+    if (args.read_stripe >= 0)
+        return run_normal_read_one_stripe(client, args.read_stripe, block_size, k) ? 0 : -1;
+
+    if (args.populate >= 0)
+    {
+        const int stripe_num = args.populate;
+        size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k);
+        std::cout << "Starting set stripe operation" << std::endl;
+        std::chrono::high_resolution_clock::time_point set_start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < stripe_num; i++)
+            client.set();
+        std::chrono::high_resolution_clock::time_point set_end = std::chrono::high_resolution_clock::now();
+        std::cout << "Set stripe operation finished" << std::endl;
+        std::chrono::duration<double> set_time =
+            std::chrono::duration_cast<std::chrono::duration<double>>(set_end - set_start);
+        std::cout << "write throughput: " << (static_cast<double>(total_write_size) / set_time.count())
+                  << " MB/s" << std::endl;
+        return 0;
+    }
+
+    const int stripe_num = 9;
+    size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k);
     std::cout << "Starting set stripe operation" << std::endl;
     std::chrono::high_resolution_clock::time_point set_start = std::chrono::high_resolution_clock::now();
-    for(int i = 0; i < stripe_num; i++){
+    for (int i = 0; i < stripe_num; i++)
         client.set();
-    }
     std::chrono::high_resolution_clock::time_point set_end = std::chrono::high_resolution_clock::now();
     std::cout << "Set stripe operation finished" << std::endl;
     std::cout << "Conducting experiments, please wait..." << std::endl;
-    std::chrono::duration<double> set_time = std::chrono::duration_cast<std::chrono::duration<double>>(set_end - set_start);
-    std::cout << "write throughput: " << (static_cast<double>(total_write_size) / set_time.count()) << " MB/s" << std::endl;
-    std::mt19937 rng(std::random_device{}());
+    std::chrono::duration<double> set_time =
+        std::chrono::duration_cast<std::chrono::duration<double>>(set_end - set_start);
+    std::cout << "write throughput: " << (static_cast<double>(total_write_size) / set_time.count()) << " MB/s"
+              << std::endl;
     sleep(5);
 
-    std::uniform_int_distribution<int> dist_500(0, k*stripe_num - 500);
-    std::uniform_real_distribution<double> dist_double(0.0, 1.0);
-
+    {
  /*
     // 读性能测试：Normal read -> Degraded read -> Maintenance-robust read（共用上方预写的 stripe）
     std::cout << "Normal read test start" << std::endl;
@@ -765,6 +910,10 @@ int main(int argc, char **argv)
         }
 
         std::vector<std::chrono::duration<double>> multi_stripe_one_rack_time_spans;
+        double recovered_mb = 0.0;
+        for (const auto &plan : plans)
+            recovered_mb += static_cast<double>(plan.failed.size()) * block_size;
+
         for (int i = 0; i < 5; i++)
         {
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
@@ -792,10 +941,11 @@ int main(int argc, char **argv)
                 std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
             multi_stripe_one_rack_time_spans.push_back(time_span);
             if (time_span.count() > 0)
-                std::cout << "[" << i << "th] Multi-stripe one rack recovery time: "
-                        << time_span.count() << " s" << std::endl;
+                std::cout << "[" << i << "th] Multi-stripe one rack recovery throughput: "
+                          << (recovered_mb / time_span.count()) << " MB/s" << std::endl;
         }
-        print_recovery_time_summary("Multi-stripe one rack recovery", multi_stripe_one_rack_time_spans);
+        print_throughput_summary("Multi-stripe one rack recovery",
+                                 multi_stripe_one_rack_time_spans, recovered_mb);
         std::cout << "Multi-stripe one rack recovery test end" << std::endl;
         std::cout << std::endl;
         }
@@ -821,7 +971,8 @@ int main(int argc, char **argv)
                   << kRepairSampleSeed << "):";
         print_block_ids("", node_ids);
 
-        std::vector<double> full_node_recovery_times;
+        std::vector<std::chrono::duration<double>> full_node_time_spans;
+        std::vector<double> full_node_recovered_mbs;
         for (int i = 0; i < node_num; i++)
         {
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
@@ -837,29 +988,20 @@ int main(int argc, char **argv)
             }
             if (time_span.count() <= 0)
                 continue;
-            full_node_recovery_times.push_back(time_span.count());
+            const double sample_mb = static_cast<double>(block_num) * block_size;
+            full_node_time_spans.push_back(time_span);
+            full_node_recovered_mbs.push_back(sample_mb);
             std::cout << "  node " << node_ids[i] << ": " << block_num << " blocks, "
-                      << time_span.count() << " s" << std::endl;
+                      << (sample_mb / time_span.count()) << " MB/s" << std::endl;
         }
-        if (full_node_recovery_times.empty())
+        if (full_node_time_spans.empty())
         {
             std::cout << "No successful full-node recovery samples (all nodes empty?)" << std::endl;
         }
         else
         {
-            std::cout << "Average recovery time: "
-                      << std::accumulate(full_node_recovery_times.begin(),
-                                         full_node_recovery_times.end(), 0.0) /
-                             full_node_recovery_times.size()
-                      << " s" << std::endl;
-            std::cout << "Max recovery time: "
-                      << *std::max_element(full_node_recovery_times.begin(),
-                                           full_node_recovery_times.end())
-                      << " s" << std::endl;
-            std::cout << "Min recovery time: "
-                      << *std::min_element(full_node_recovery_times.begin(),
-                                           full_node_recovery_times.end())
-                      << " s" << std::endl;
+            print_throughput_summary_per_sample("Full node repair",
+                                                full_node_time_spans, full_node_recovered_mbs);
         }
         std::cout << "Full node repair test end" << std::endl;
         std::cout << std::endl;
@@ -882,7 +1024,8 @@ int main(int argc, char **argv)
             std::cout << " (" << node_pairs[i].first << "," << node_pairs[i].second << ")";
         std::cout << std::endl;
 
-        std::vector<double> two_node_recovery_times;
+        std::vector<std::chrono::duration<double>> two_node_time_spans;
+        std::vector<double> two_node_recovered_mbs;
         for (int i = 0; i < pair_num; i++)
         {
             const int n0 = node_pairs[i].first;
@@ -900,35 +1043,27 @@ int main(int argc, char **argv)
             }
             if (time_span.count() <= 0)
                 continue;
-            two_node_recovery_times.push_back(time_span.count());
+            const double sample_mb = static_cast<double>(block_num) * block_size;
+            two_node_time_spans.push_back(time_span);
+            two_node_recovered_mbs.push_back(sample_mb);
             std::cout << "  nodes " << n0 << "," << n1 << ": " << block_num << " blocks, "
-                      << time_span.count() << " s" << std::endl;
+                      << (sample_mb / time_span.count()) << " MB/s" << std::endl;
         }
-        if (two_node_recovery_times.empty())
+        if (two_node_time_spans.empty())
         {
             std::cout << "No successful two-node recovery samples (all pairs empty?)" << std::endl;
         }
         else
         {
-            std::cout << "Average recovery time: "
-                      << std::accumulate(two_node_recovery_times.begin(),
-                                         two_node_recovery_times.end(), 0.0) /
-                             two_node_recovery_times.size()
-                      << " s" << std::endl;
-            std::cout << "Max recovery time: "
-                      << *std::max_element(two_node_recovery_times.begin(),
-                                           two_node_recovery_times.end())
-                      << " s" << std::endl;
-            std::cout << "Min recovery time: "
-                      << *std::min_element(two_node_recovery_times.begin(),
-                                           two_node_recovery_times.end())
-                      << " s" << std::endl;
+            print_throughput_summary_per_sample("Two node repair",
+                                                two_node_time_spans, two_node_recovered_mbs);
         }
         std::cout << "Two node repair test end" << std::endl;
         std::cout << std::endl;
     }
+    }
 
-    //for decode test
+    /*
     // std::cout << "Decode test start" << std::endl;
     // std::vector<double> decode_time_spans;
     // for(int i = 0; i < n; i++){

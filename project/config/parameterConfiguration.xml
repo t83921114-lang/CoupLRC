@@ -6,9 +6,9 @@
     <!--1048576-->
     <!--8388608-->
     <!--67108864-->
-    <DatanodeNumPerCluster>6</DatanodeNumPerCluster>
-    <ClusterNum>21</ClusterNum>
-    <CoordinatorIP>172.16.0.3</CoordinatorIP>
+    <DatanodeNumPerCluster>4</DatanodeNumPerCluster>
+    <ClusterNum>17</ClusterNum>
+    <CoordinatorIP>172.16.0.5</CoordinatorIP>
     <CoordinatorPort>55555</CoordinatorPort>
     <!-- AppendMode: REP_MODE; UNILRC_MODE; CACHED_MODE -->
     <AppendMode>UNILRC_MODE</AppendMode>

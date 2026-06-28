@@ -4,9 +4,9 @@
 
 all_ips 模式（ip_mode=all_ips）：
   1. 读取 all_ips（顺序任意）
-  2. 排序后：最小->client，次小->coordinator，其余按 cluster 分组 proxy/datanode
+  2. 排序后：前 client_num 个 -> client，下一个 -> coordinator，其余按 cluster 分组 proxy/datanode
   3. 写入 clusterInformation.xml、parameterConfiguration.xml、cluster.ini
-  4. 写入仓库根目录 hosts、proxy_hosts
+  4. 写入仓库根目录 hosts、proxy_hosts、client_hosts
   5. 同步 main_client.cpp 中的 client_ip 硬编码
 """
 import configparser
@@ -139,8 +139,8 @@ def main() -> None:
         repo_root / "hosts",
         layout.all_hosts,
         header=(
-            f"{len(layout.all_hosts)} nodes: client, coordinator, proxy, datanode "
-            "(auto-generated from all_ips)"
+            f"{len(layout.all_hosts)} nodes: {len(layout.client_ips)} client(s), coordinator, "
+            f"proxy, datanode (auto-generated from all_ips)"
         ),
     )
     write_lines(
@@ -148,13 +148,19 @@ def main() -> None:
         layout.proxy_hosts,
         header=f"{len(layout.proxy_hosts)} proxy nodes (auto-generated from all_ips)",
     )
+    write_lines(
+        repo_root / "client_hosts",
+        layout.client_ips,
+        header=f"{len(layout.client_ips)} client nodes (auto-generated from all_ips)",
+    )
     print(f"Written {repo_root / 'hosts'}")
     print(f"Written {repo_root / 'proxy_hosts'}")
+    print(f"Written {repo_root / 'client_hosts'}")
 
     update_main_client_cpp(layout.client_ip)
 
     print("\nRole assignment (sorted):")
-    print(f"  client       -> {layout.client_ip}")
+    print(f"  clients      -> {len(layout.client_ips)}: {', '.join(layout.client_ips)}")
     print(f"  coordinator  -> {layout.coordinator_ip}")
     print(f"  clusters     -> {cluster_num} x (1 proxy + {dn_per} datanode)")
 
