@@ -3389,52 +3389,100 @@ namespace ECProject
     const proxy_proto::StripeAndBlockIDs *request, proxy_proto::GetReply *response)
   {
     std::cout << "getting blocks" << "[" << request->block_ids(0) << "]" << "to" << "[" << request->block_ids(request->block_ids_size() - 1) << "]" << std::endl;
-    int BlockSize = m_sys_config->BlockSize;
-    size_t total_size = static_cast<size_t> (BlockSize) * request->block_ids_size();
-    char *blocks = new char[total_size];
-    uint32_t group_id = request->group_id();
+    const size_t BlockSize = static_cast<size_t>(m_sys_config->BlockSize);
+    // 流式中继的分块大小：从 datanode 读满一段，立刻转发给 client，再读下一段。
+    // 单线程内严格 read-then-write，不存在“没读完就发”的竞态；同时 datanode->proxy
+    // 与 proxy->client 两跳天然 pipeline，无需把整块缓存在 proxy。
+    const size_t CHUNK = static_cast<size_t>(1) << 20; // 1MB
 
-    std::vector<std::thread> get_threads;
+    std::vector<std::thread> relay_threads;
     for (int i = 0; i < request->block_ids_size(); i++)
     {
-      get_threads.push_back(std::thread([this, i, &blocks, &request, BlockSize]() {
-        this->GetFromDatanode(
-            request->block_keys(i),
-            blocks + i * BlockSize,
-            static_cast<size_t>(m_sys_config->BlockSize),
-            request->datanodeips(i).c_str(),
-            static_cast<int>(request->datanodeports(i)));
+      relay_threads.push_back(std::thread([this, i, &request, BlockSize, CHUNK]() {
+        try
+        {
+          const std::string block_key = request->block_keys(i);
+          const std::string dn_ip = request->datanodeips(i);
+          const int dn_port = static_cast<int>(request->datanodeports(i));
+          const uint32_t block_id = request->block_ids(i);
+
+          // 1) 通知 datanode 在其数据端口准备好该 block。
+          {
+            grpc::ClientContext rpc_ctx;
+            datanode_proto::GetInfo get_info;
+            datanode_proto::RequestResult result;
+            get_info.set_block_key(block_key);
+            get_info.set_block_size(BlockSize);
+            get_info.set_proxy_ip(m_ip);
+            get_info.set_proxy_port(m_port);
+            const std::string node_ip_port = dn_ip + ":" + std::to_string(dn_port);
+            grpc::Status stat = m_datanode_ptrs[node_ip_port]->handleGet(&rpc_ctx, get_info, &result);
+            if (!stat.ok())
+            {
+              std::cout << "[Proxy" << m_self_cluster_id << "][GET] handleGet failed for " << block_key << std::endl;
+              return;
+            }
+          }
+
+          asio::io_context io_context;
+
+          // 2) 连接 datanode 数据端口（数据源）。
+          asio::ip::tcp::socket dn_socket(io_context);
+          asio::ip::tcp::resolver dn_resolver(io_context);
+          asio::connect(dn_socket, dn_resolver.resolve(dn_ip, std::to_string(dn_port + ECProject::DATANODE_PORT_SHIFT)));
+
+          // 3) 连接 client（数据汇），先发 block_id 头部。
+          asio::ip::tcp::socket cli_socket(io_context);
+          asio::ip::tcp::resolver cli_resolver(io_context);
+          asio::error_code cerr;
+          asio::connect(cli_socket, cli_resolver.resolve(request->clientip(), std::to_string(request->clientport())), cerr);
+          if (cerr)
+          {
+            std::cout << "error in connect to client" << std::endl;
+            asio::error_code ig;
+            dn_socket.shutdown(asio::ip::tcp::socket::shutdown_both, ig);
+            dn_socket.close(ig);
+            return;
+          }
+          asio::write(cli_socket, asio::buffer(&block_id, sizeof(uint32_t)));
+
+          // 4) 流式：从 datanode 读满一段，立刻转发给 client（顺序保证，TCP 保序）。
+          std::vector<char> buf(CHUNK);
+          size_t remaining = BlockSize;
+          asio::error_code ec;
+          while (remaining > 0)
+          {
+            const size_t want = (remaining < CHUNK) ? remaining : CHUNK;
+            const size_t got = asio::read(dn_socket, asio::buffer(buf.data(), want), ec);
+            if (got != want)
+            {
+              std::cout << "[Proxy" << m_self_cluster_id << "][GET] datanode short read for " << block_key << std::endl;
+              break;
+            }
+            asio::write(cli_socket, asio::buffer(buf.data(), got));
+            remaining -= got;
+          }
+
+          // 5) 关闭两端连接。
+          asio::error_code ig;
+          dn_socket.shutdown(asio::ip::tcp::socket::shutdown_both, ig);
+          dn_socket.close(ig);
+          cli_socket.shutdown(asio::ip::tcp::socket::shutdown_send, ig);
+          cli_socket.close(ig);
+        }
+        catch (const std::exception &e)
+        {
+          std::cerr << "[Proxy][getBlocks relay] " << e.what() << '\n';
+        }
       }));
     }
-    for (auto &thread : get_threads)
+
+    for (auto &t : relay_threads)
     {
-      thread.join();
+      t.join();
     }
 
-    for (int i = 0; i < request->block_ids_size(); i++)
-    {
-      asio::error_code error;
-      asio::io_context io_context;
-      asio::ip::tcp::socket socket_data(io_context);
-      asio::ip::tcp::resolver resolver(io_context);
-      asio::ip::tcp::resolver::results_type endpoints =
-          resolver.resolve(request->clientip(), std::to_string(request->clientport()));
-      socket_data.connect(*endpoints, error);
-      if (error)
-      {
-        std::cout << "error in connect" << std::endl;
-      }
-      std::cout << "connected to client" << std::endl;
-      u_int32_t block_id = request->block_ids(i);
-      asio::write(socket_data, asio::buffer(&block_id, sizeof(u_int32_t)));
-      asio::write(socket_data, asio::buffer(blocks + i * static_cast<size_t>(BlockSize), BlockSize));
-      asio::error_code ignore_ec;
-      socket_data.shutdown(asio::ip::tcp::socket::shutdown_send, ignore_ec);
-      socket_data.close(ignore_ec);
-    }
-
-    delete blocks;
-    return grpc::Status();
+    return grpc::Status::OK;
   }
 
 } // namespace ECProject
