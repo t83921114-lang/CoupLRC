@@ -152,6 +152,36 @@ node_host_at() {
     echo "${NODE_HOSTS[$1]}"
 }
 
+# Populate CLIENT_IPS with the read clients. The bulk proxy->client delivery
+# (normal/degraded read) leaves the rack on the proxy uplink, so these IPs are
+# shaped at the inter-rack rate (same 1:10 egress class as proxy<->proxy).
+load_client_ips() {
+    local config_file="$1"
+    local repo_root script ip cip
+
+    CLIENT_IPS=()
+    repo_root="$(cd "$(dirname "$config_file")/../.." && pwd)"
+    script="$repo_root/project/config/ip_layout.py"
+    if [ -f "$script" ]; then
+        # 多 client 版本支持 client-ips（复数）；单 client 版本只有 client-ip（单数）。
+        while IFS= read -r ip; do
+            [ -n "$ip" ] || continue
+            CLIENT_IPS+=("$ip")
+        done < <(python3 "$script" --ini "$config_file" --format client-ips 2>/dev/null)
+        if [ "${#CLIENT_IPS[@]}" -eq 0 ]; then
+            while IFS= read -r ip; do
+                [ -n "$ip" ] || continue
+                CLIENT_IPS+=("$ip")
+            done < <(python3 "$script" --ini "$config_file" --format client-ip 2>/dev/null)
+        fi
+    fi
+    if [ "${#CLIENT_IPS[@]}" -eq 0 ]; then
+        cip=$(get_ini cluster client_ip "$config_file")
+        [ -n "$cip" ] && CLIENT_IPS+=("$cip")
+    fi
+    export CLIENT_IPS
+}
+
 read_cluster_layout() {
     local config_file="$1"
     local cluster_num first_proxy_ip dn_per ip_mode
@@ -617,9 +647,15 @@ apply_bandwidth_limits() {
 
     clear_bandwidth_limits "$iface" 1
 
+    if [ "$NODE_ROLE" = proxy ]; then
+        load_client_ips "$config_file"
+    fi
+
     if [ "$NODE_ROLE" = proxy ] && [ "$limit_datanode" -eq 0 ]; then
         # Legacy mode: proxy 仅机架间限速（出+入），机架内不限速。
-        apply_proxy_inter_egress_limits "$iface" "$inter_rate" "$max_rate" "${INTER_IPS[@]}" || {
+        # 读路径的 proxy->client 也走机架间上行，故 client IP 一并纳入 inter (egress) 整形。
+        apply_proxy_inter_egress_limits "$iface" "$inter_rate" "$max_rate" \
+            "${INTER_IPS[@]}" "${CLIENT_IPS[@]}" || {
             echo "fail | proxy | $iface | tc egress setup failed" >&2
             return 1
         }
@@ -631,14 +667,14 @@ apply_bandwidth_limits() {
             echo "fail | proxy | $iface | tc ingress setup failed" >&2
             return 1
         }
-        echo "ok | proxy | $iface | inter=${inter_label}(${#INTER_IPS[@]}) intra=unlimited | egress+ingress"
+        echo "ok | proxy | $iface | inter=${inter_label}(${#INTER_IPS[@]}+${#CLIENT_IPS[@]}cli) intra=unlimited | egress+ingress"
         return 0
     fi
 
     if [ "$NODE_ROLE" = proxy ]; then
-        # Default: inter-rack -> other proxies, intra-rack -> local datanodes; both directions.
+        # Default: inter-rack -> other proxies + read clients, intra-rack -> local datanodes; both directions.
         apply_proxy_egress_limits "$iface" "$inter_rate" "$intra_rate" "$max_rate" \
-            "${INTER_IPS[@]}" -- "${INTRA_IPS[@]}" || {
+            "${INTER_IPS[@]}" "${CLIENT_IPS[@]}" -- "${INTRA_IPS[@]}" || {
             echo "fail | proxy | $iface | tc egress setup failed" >&2
             return 1
         }
@@ -651,7 +687,7 @@ apply_bandwidth_limits() {
             echo "fail | proxy | $iface | tc ingress setup failed" >&2
             return 1
         }
-        echo "ok | proxy | $iface | inter=${inter_label}(${#INTER_IPS[@]}) intra=${intra_label}(${#INTRA_IPS[@]}) | egress+ingress"
+        echo "ok | proxy | $iface | inter=${inter_label}(${#INTER_IPS[@]}+${#CLIENT_IPS[@]}cli) intra=${intra_label}(${#INTRA_IPS[@]}) | egress+ingress"
         return 0
     fi
 
