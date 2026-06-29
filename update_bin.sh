@@ -119,15 +119,24 @@ for ((c=0; c<CLUSTER_NUM; c++)); do
   done
 done
 
+CLIENT_IPS=()
+if [ "$IP_MODE" = "all_ips" ]; then
+  mapfile -t CLIENT_IPS < <(python3 "$IP_LAYOUT" --ini "$CONFIG" --format client-ips)
+else
+  CLIENT_IPS=("$(get_ini cluster client_ip)")
+fi
+
 uniq_lines() { awk '!seen[$0]++'; }
 
 PROXY_HOSTS="$(printf "%s\n" "${PROXY_IPS[@]}" | uniq_lines)"
 DN_HOSTS="$(printf "%s\n" "${DN_IPS[@]}" | uniq_lines)"
 COORD_HOSTS="$(printf "%s\n" "$COORD_IP" | uniq_lines)"
+CLIENT_HOSTS="$(printf "%s\n" "${CLIENT_IPS[@]}" | uniq_lines)"
 
 echo "Coordinator: $COORD_IP"
 echo "Proxy hosts: $(echo "$PROXY_HOSTS" | wc -l)"
 echo "Datanode hosts: $(echo "$DN_HOSTS" | wc -l)"
+echo "Client hosts: $(echo "$CLIENT_HOSTS" | wc -l)"
 
 TMPDIR="${TMPDIR:-/tmp}"
 FILELIST_PROXY="$TMPDIR/unilrc-files-proxy.txt"
@@ -169,6 +178,18 @@ proxy_hosts
 client_hosts
 EOF
 
+FILELIST_CLIENT="$TMPDIR/unilrc-files-client.txt"
+cat >"$FILELIST_CLIENT" <<'EOF'
+project/cmake/build/main_client
+project/config/cluster.ini
+project/config/clusterInformation.xml
+project/config/parameterConfiguration.xml
+all_ips
+hosts
+proxy_hosts
+client_hosts
+EOF
+
 sync_group() {
   local role="$1" filelist="$2"
   shift 2
@@ -198,10 +219,12 @@ sync_group() {
 mapfile -t PROXY_HOST_ARR < <(printf "%s\n" "$PROXY_HOSTS" | grep -vE '^[[:space:]]*$' || true)
 mapfile -t DN_HOST_ARR < <(printf "%s\n" "$DN_HOSTS" | grep -vE '^[[:space:]]*$' || true)
 mapfile -t COORD_HOST_ARR < <(printf "%s\n" "$COORD_HOSTS" | grep -vE '^[[:space:]]*$' || true)
+mapfile -t CLIENT_HOST_ARR < <(printf "%s\n" "$CLIENT_HOSTS" | grep -vE '^[[:space:]]*$' || true)
 
 sync_group "proxy" "$FILELIST_PROXY" "${PROXY_HOST_ARR[@]}"
 sync_group "datanode" "$FILELIST_DN" "${DN_HOST_ARR[@]}"
 sync_group "coordinator" "$FILELIST_COORD" "${COORD_HOST_ARR[@]}"
+sync_group "client" "$FILELIST_CLIENT" "${CLIENT_HOST_ARR[@]}"
 
 echo "All done."
 

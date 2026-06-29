@@ -1,4 +1,4 @@
-# 90 nodes: 4 client(s), coordinator, proxy, datanode (auto-generated from all_ips)
+# 94 nodes: 8 client(s), coordinator, proxy, datanode (auto-generated from all_ips)
 172.16.0.1
 172.16.0.3
 172.16.0.4
@@ -89,3 +89,7 @@
 172.16.0.136
 172.16.0.138
 172.16.0.139
+172.16.0.141
+172.16.0.144
+172.16.0.145
+172.16.0.147

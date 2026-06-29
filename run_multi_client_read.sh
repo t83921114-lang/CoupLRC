@@ -167,21 +167,17 @@ import sys
 print(max(float(x) for x in sys.argv[1:]))
 PY
 )
-  TOTAL_MB=$(python3 - "$CLIENT_NUM" "$STRIPE_MB" <<'PY'
+  AGG=$(python3 - "$STRIPE_MB" "${GET_TIMES[@]}" <<'PY'
 import sys
-print(float(sys.argv[1]) * float(sys.argv[2]))
-PY
-)
-  AGG=$(python3 - "$TOTAL_MB" "$WALL" <<'PY'
-import sys
-total_mb, wall = float(sys.argv[1]), float(sys.argv[2])
-print(total_mb / wall if wall > 0 else 0.0)
+stripe_mb = float(sys.argv[1])
+times = [float(x) for x in sys.argv[2:]]
+print(sum(stripe_mb / t for t in times if t > 0))
 PY
 )
 
   echo "$r	$WALL	$AGG" >>"$SUMMARY_FILE"
   echo "Parallel get time (max over clients): ${WALL}s"
-  echo "Parallel aggregate throughput: ${AGG} MB/s  (${CLIENT_NUM} clients x ${STRIPE_MB} MB / ${WALL}s)"
+  echo "Total throughput (sum of per-client throughput): ${AGG} MB/s  (sum of ${STRIPE_MB} MB / get_time over ${CLIENT_NUM} clients)"
   echo "Launch wall time (incl. ssh/startup, reference only): ${LAUNCH_WALL}s"
 
   for ((i = 0; i < CLIENT_NUM; i++)); do
@@ -209,18 +205,13 @@ if not aggs:
     print("No successful rounds")
     sys.exit(0)
 
-total_wall = sum(walls)
-total_reads = len(aggs) * client_num
-total_data_mb = total_reads * stripe_mb
-
 print("=== Multi-client parallel read summary ===")
 print(f"clients={client_num}  rounds={len(aggs)}  stripe_id={stripe_id}  stripe_mb={stripe_mb}")
 print(f"Average parallel get time (max over clients per round): {sum(walls) / len(walls):.6f}s")
-print(f"Average parallel aggregate throughput: {sum(aggs) / len(aggs):.0f} MB/s")
-print(f"Max parallel aggregate throughput: {max(aggs):.0f} MB/s")
-print(f"Min parallel aggregate throughput: {min(aggs):.0f} MB/s")
-print(f"Overall aggregate throughput: {total_data_mb / total_wall:.0f} MB/s  "
-      f"({total_reads} reads, {total_data_mb:.0f} MB / {total_wall:.6f}s wall sum)")
+print(f"Total throughput = sum of per-client throughput (per round):")
+print(f"  Average total throughput: {sum(aggs) / len(aggs):.0f} MB/s")
+print(f"  Max total throughput: {max(aggs):.0f} MB/s")
+print(f"  Min total throughput: {min(aggs):.0f} MB/s")
 print("Multi-client normal read test end")
 PY
 

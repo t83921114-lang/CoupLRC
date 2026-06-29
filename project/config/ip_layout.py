@@ -80,6 +80,7 @@ def allocate_all_ips(
     client_num: int,
     first_port: int,
     dn_start: int,
+    client_ips_explicit: list[str] | None = None,
 ) -> ClusterLayout:
     group_size = 1 + dn_per
     expected = client_num + 1 + cluster_num * group_size
@@ -91,11 +92,33 @@ def allocate_all_ips(
         )
         sys.exit(1)
 
-    sorted_ips = sort_ips(raw_ips)
-    client_ips = sorted_ips[:client_num]
-    client_ip = client_ips[0]
-    coordinator_ip = sorted_ips[client_num]
-    node_ips = sorted_ips[client_num + 1 :]
+    if client_ips_explicit:
+        raw_set = set(raw_ips)
+        missing = [ip for ip in client_ips_explicit if ip not in raw_set]
+        if missing:
+            print(
+                f"Error: client_ips not present in all_ips: {', '.join(missing)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        if len(client_ips_explicit) != client_num:
+            print(
+                f"Error: client_ips count {len(client_ips_explicit)} != client_num {client_num}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        client_ips = list(client_ips_explicit)
+        client_ip = client_ips[0]
+        client_set = set(client_ips)
+        remaining = sort_ips([ip for ip in raw_ips if ip not in client_set])
+        coordinator_ip = remaining[0]
+        node_ips = remaining[1:]
+    else:
+        sorted_ips = sort_ips(raw_ips)
+        client_ips = sorted_ips[:client_num]
+        client_ip = client_ips[0]
+        coordinator_ip = sorted_ips[client_num]
+        node_ips = sorted_ips[client_num + 1 :]
 
     clusters: list[dict] = []
     proxy_hosts: list[str] = []
@@ -117,7 +140,7 @@ def allocate_all_ips(
         coordinator_ip=coordinator_ip,
         first_proxy_ip=proxy_hosts[0],
         clusters=clusters,
-        all_hosts=sorted_ips,
+        all_hosts=sort_ips(raw_ips),
         proxy_hosts=proxy_hosts,
         node_ips=node_ips,
     )
@@ -184,6 +207,8 @@ def compute_layout(cfg: configparser.ConfigParser, ini_path: Path) -> ClusterLay
         repo_root = repo_root_from_ini(ini_path)
         all_ips_path = resolve_all_ips_path(cfg, repo_root)
         raw_ips = load_all_ips(all_ips_path)
+        client_ips_raw = cfg["cluster"].get("client_ips", "").replace(",", " ").split()
+        client_ips_explicit = client_ips_raw or None
         return allocate_all_ips(
             raw_ips,
             int(cfg["cluster"]["cluster_num"]),
@@ -191,6 +216,7 @@ def compute_layout(cfg: configparser.ConfigParser, ini_path: Path) -> ClusterLay
             int(cfg["cluster"].get("client_num", "1")),
             int(cfg["cluster"]["first_proxy_port"]),
             int(cfg["cluster"]["datanode_port_start"]),
+            client_ips_explicit,
         )
     if ip_mode == "hosts_list":
         print(
