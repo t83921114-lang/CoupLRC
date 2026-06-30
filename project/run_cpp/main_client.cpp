@@ -317,7 +317,7 @@ int main(int argc, char **argv)
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
     
-    int stripe_num = 17;
+    int stripe_num = 1;
 
     size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
     std::cout << "Starting set stripe operation" << std::endl;
@@ -366,40 +366,49 @@ int main(int argc, char **argv)
     std::cout << "Min speed: " << static_cast<size_t>(block_size) * k / read_max_time_span.count() << " MB/s" << std::endl;
     std::cout << "Normal read test end" << std::endl;
     std::cout << std::endl;
+*/
 
 
-
-    //for degraded read test 
-    std::vector<std::chrono::duration<double>> degraded_read_time_spans;
-    std::cout << "Degraded read test start" << std::endl;
-    for(int i = 0; i < k; i++){
-        size_t data_size;
-        int id = i;
-        std::string key = std::to_string(id);
-        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-        std::shared_ptr<char[]> data = client.get_degraded_read_block(0, i);
-        if(!data){
-            std::cout << "Degraded read operation failed" << std::endl;
+    //for degraded read test (4 rounds, k blocks per round)
+    const int degraded_read_rounds = 5;
+    const double degraded_stripe_mb = static_cast<double>(k) * block_size;
+    std::vector<std::chrono::duration<double>> degraded_round_time_spans;
+    std::cout << "Degraded read test start (" << degraded_read_rounds << " rounds, " << k
+              << " blocks/round)" << std::endl;
+    for (int r = 0; r < degraded_read_rounds; r++)
+    {
+        std::vector<std::chrono::duration<double>> degraded_read_time_spans;
+        for (int i = 0; i < k; i++)
+        {
+            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+            std::shared_ptr<char[]> data = client.get_degraded_read_block(0, i);
+            if (!data)
+            {
+                std::cout << "[" << r << "th] block " << i << " degraded read failed" << std::endl;
+                continue;
+            }
+            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> time_span =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+            degraded_read_time_spans.push_back(time_span);
+        }
+        if (degraded_read_time_spans.empty())
+        {
+            std::cout << "[" << r << "th] Degraded read round failed (no successful blocks)" << std::endl;
             continue;
         }
-        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-        degraded_read_time_spans.push_back(time_span);
-        //std::cout << "get time: " << time_span.count() << std::endl;
+        std::chrono::duration<double> round_total_time =
+            std::accumulate(degraded_read_time_spans.begin(), degraded_read_time_spans.end(),
+                            std::chrono::duration<double>(0));
+        degraded_round_time_spans.push_back(round_total_time);
+        if (round_total_time.count() > 0)
+            std::cout << "[" << r << "th] Degraded read throughput: "
+                      << (degraded_stripe_mb / round_total_time.count()) << " MB/s" << std::endl;
     }
-    std::chrono::duration<double> degraded_read_total_time_span = std::accumulate(degraded_read_time_spans.begin(), degraded_read_time_spans.end(), std::chrono::duration<double>(0));
-    std::cout << "Average time: " << degraded_read_total_time_span.count() / degraded_read_time_spans.size() << std::endl;
-    std::chrono::duration<double> degraded_read_max_time_span = *std::max_element(degraded_read_time_spans.begin(), degraded_read_time_spans.end());
-    std::chrono::duration<double> degraded_read_min_time_span = *std::min_element(degraded_read_time_spans.begin(), degraded_read_time_spans.end());
-    std::cout << "Max time: "<< degraded_read_max_time_span.count() << std::endl;
-    std::cout << "Min time: "<< degraded_read_min_time_span.count() << std::endl;
-    std::cout << "Throughput (blocks/s): " << degraded_read_time_spans.size() / degraded_read_total_time_span.count() << std::endl;
-    std::cout << "Speed: " << static_cast<size_t>(block_size) / (degraded_read_total_time_span.count() / degraded_read_time_spans.size()) << " MB/s" << std::endl;
-    std::cout << "Max speed: " << static_cast<size_t>(block_size) / degraded_read_min_time_span.count() << " MB/s" << std::endl;
-    std::cout << "Min speed: " << static_cast<size_t>(block_size) / degraded_read_max_time_span.count() << " MB/s" << std::endl;
+    print_throughput_summary("Degraded read", degraded_round_time_spans, degraded_stripe_mb);
     std::cout << "Degraded read test end" << std::endl;
     std::cout << std::endl;
-*/
+
 
 /*
     // Maintenance-robust normal read（与 Normal/Degraded read 共用预写后的 stripe 0）
@@ -565,7 +574,7 @@ int main(int argc, char **argv)
     }
 */
 
- 
+ /*
     // 打点 breakdown test for two block recovery (test blocks 0 and 1)
     {
         const double recovered_mb = 2.0 * block_size;
@@ -618,7 +627,7 @@ int main(int argc, char **argv)
         std::cout << "Two block recovery breakdown test end" << std::endl;
         std::cout << std::endl;
     }
-
+*/
 
 /*
 // Multi block recovery: first cluster (rack) fails under current layout + placement
@@ -694,7 +703,7 @@ int main(int argc, char **argv)
     }
 */
 
-
+/*
 //多条带单机架修复
     {
         const int failed_cluster_id = 0;
@@ -837,10 +846,10 @@ int main(int argc, char **argv)
         std::cout << std::endl;
         }
     }
+*/
 
 
-
-
+/*
     const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
 
     //Full node repair: fixed-seed sample over [0, ClusterNum*DatanodeNumPerCluster)
@@ -961,7 +970,7 @@ int main(int argc, char **argv)
     // std::cout << std::accumulate(decode_time_spans.begin(), decode_time_spans.end(), 0.0) / decode_time_spans.size() << std::endl;
     // std::cout << "Decode test end" << std::endl;
     // std::cout << std::endl;
-
+*/
 
 
 /*

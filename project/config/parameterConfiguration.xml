@@ -14,9 +14,9 @@
     <AppendMode>UNILRC_MODE</AppendMode>
     <alpha>2</alpha>
     <!-- LRC: UniLRC; LotusLRC; AzureLRC; OptimalLRC; UniformLRC -->
-    <CodeType>AzureLRC</CodeType>
-    <k>48</k>
-    <r>3</r>
+    <CodeType>UniformLRC</CodeType>
+    <k>96</k>
+    <r>5</r>
     <z>4</z>
     <!-- <CodeType>UniformLRC</CodeType>
     <k>30</k>
