@@ -27,6 +27,24 @@ namespace ECProject
       return "RPC failed";
     }
   }
+  bool Client::barrier(const std::string &session, int round, int client_index, int client_num)
+  {
+    coordinator_proto::BarrierRequest request;
+    request.set_session(session);
+    request.set_expected_num(client_num);
+    request.set_client_index(client_index);
+    request.set_round(round);
+    coordinator_proto::BarrierReply reply;
+    grpc::ClientContext context;
+    grpc::Status status = m_coordinator_ptr->clientBarrier(&context, request, &reply);
+    if (!status.ok())
+    {
+      std::cout << "[Client] barrier failed: " << status.error_code() << ": "
+                << status.error_message() << std::endl;
+      return false;
+    }
+    return reply.released();
+  }
   // grpc, set the parameters stored in the variable of m_encode_parameters in coordinator
   bool Client::SetParameterByGrpc(ECSchema input_ecschema)
   {

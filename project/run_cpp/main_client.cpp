@@ -274,6 +274,12 @@ struct ClientArgs
     int populate = -1;
     int read_stripe = -1;
     int read_rounds = 5;
+    // Multi-client barrier: when barrier_session is non-empty and client_num > 1, each read
+    // round first rendezvous at the coordinator so all clients start their get() together.
+    std::string barrier_session;
+    int barrier_round = 0;
+    int client_index = 0;
+    int client_num = 1;
 };
 
 void print_client_usage(const char *prog)
@@ -285,6 +291,10 @@ void print_client_usage(const char *prog)
         << "  --populate N          写 N 条 stripe 后退出\n"
         << "  --read-stripe ID      读同一条 stripe N 次后退出（normal read）\n"
         << "  --read-rounds N       与 --read-stripe 配合，默认 5\n"
+        << "  --barrier-session S   多 client 同步屏障的 session id（空则不同步）\n"
+        << "  --barrier-round R     本次读的起始 round，第 i 次读用 R+i（默认 0）\n"
+        << "  --client-index I      本 client 序号，仅日志用（默认 0）\n"
+        << "  --client-num N        参与屏障的 client 总数（默认 1，>1 才启用屏障）\n"
         << "  无上述选项时走 legacy：写 9 条 stripe + recovery 测试\n";
 }
 
@@ -311,6 +321,14 @@ bool parse_client_args(int argc, char **argv, ClientArgs &args)
             args.read_stripe = std::stoi(need_val("--read-stripe"));
         else if (arg == "--read-rounds")
             args.read_rounds = std::stoi(need_val("--read-rounds"));
+        else if (arg == "--barrier-session")
+            args.barrier_session = need_val("--barrier-session");
+        else if (arg == "--barrier-round")
+            args.barrier_round = std::stoi(need_val("--barrier-round"));
+        else if (arg == "--client-index")
+            args.client_index = std::stoi(need_val("--client-index"));
+        else if (arg == "--client-num")
+            args.client_num = std::stoi(need_val("--client-num"));
         else if (arg == "--help" || arg == "-h")
         {
             print_client_usage(argv[0]);
@@ -342,15 +360,21 @@ bool parse_client_args(int argc, char **argv, ClientArgs &args)
 }
 
 bool run_normal_read_stripe_benchmark(ECProject::Client &client, int stripe_id, double block_size,
-                                      int k, int rounds)
+                                      int k, int rounds, const std::string &barrier_session,
+                                      int barrier_round, int client_index, int client_num)
 {
     const double recovered_mb = block_size * static_cast<double>(k);
     std::string key = std::to_string(stripe_id);
+    const bool use_barrier = (!barrier_session.empty() && client_num > 1);
     std::vector<std::chrono::duration<double>> read_time_spans;
-    std::cout << "Normal read test start (stripe " << stripe_id << ", " << rounds << " rounds)"
-              << std::endl;
+    std::cout << "Normal read test start (stripe " << stripe_id << ", " << rounds << " rounds"
+              << (use_barrier ? ", barrier ON" : "") << ")" << std::endl;
     for (int i = 0; i < rounds; i++)
     {
+        // Rendezvous so every client begins this round's get() at (nearly) the same instant,
+        // ensuring the per-client timings reflect true concurrent bandwidth contention.
+        if (use_barrier)
+            client.barrier(barrier_session, barrier_round + i, client_index, client_num);
         size_t data_size;
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         std::shared_ptr<char[]> data = client.get(key, data_size);
@@ -457,7 +481,9 @@ int main(int argc, char **argv)
 
     if (args.read_stripe >= 0)
         return run_normal_read_stripe_benchmark(client, args.read_stripe, block_size, k,
-                                                args.read_rounds)
+                                                args.read_rounds, args.barrier_session,
+                                                args.barrier_round, args.client_index,
+                                                args.client_num)
                    ? 0
                    : -1;
 

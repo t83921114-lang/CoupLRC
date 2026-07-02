@@ -22,6 +22,11 @@ service coordinatorService {
   rpc sayHelloToCoordinator (RequestToCoordinator) returns (ReplyFromCoordinator) {};
   rpc checkalive (RequestToCoordinator) returns (ReplyFromCoordinator) {};
 
+  // Multi-client rendezvous barrier: a client blocks here until `expected_num` clients of the
+  // same (session, round) have arrived, then the coordinator releases all of them at once so
+  // every client begins its timed read simultaneously (removes ssh/startup skew).
+  rpc clientBarrier(BarrierRequest) returns (BarrierReply) {};
+
   // set parameters of metadata
   rpc setParameter(Parameter) returns (RepIfSetParaSuccess) {};
 
@@ -79,6 +84,18 @@ message Parameter {
 
 message RepIfSetParaSuccess {
   bool ifsetparameter = 1;
+}
+
+// Multi-client barrier
+message BarrierRequest {
+  string session = 1;      // run id shared by all clients of this benchmark
+  int32 expected_num = 2;  // total clients expected at this barrier
+  int32 client_index = 3;  // this client's index (logging only)
+  int32 round = 4;         // round number; (session, round) identifies one barrier instance
+}
+message BarrierReply {
+  bool released = 1;       // true once the barrier is released (all arrived or timeout)
+  int32 arrived_num = 2;   // number of clients that had arrived at release time
 }
 
 // The request message containing the user's name.

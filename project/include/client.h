@@ -66,6 +66,9 @@ namespace ECProject
     }
 
     std::string sayHelloToCoordinatorByGrpc(std::string hello);
+    // Block at the coordinator until `client_num` clients of the same `session` reach round
+    // `round`, so all clients start the next operation together. Returns true when released.
+    bool barrier(const std::string &session, int round, int client_index, int client_num);
     bool append(int append_size);
     bool sub_append(int append_size);
     bool sub_append_in_rep_mode(int append_size);

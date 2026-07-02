@@ -1,7 +1,9 @@
 #!/bin/bash
 # 在 leader client（client_hosts 第一个）上执行：
 # 1. 本地写 1 条 stripe
-# 2. 重复 N 轮：所有 client 并行各读 1 次；并行时间 = max(各 client 的 get time)，与 main_client 内 get 计时一致
+# 2. 重复 N 轮：所有 client 并行各读 1 次；每轮各 client 先在 coordinator 的屏障(barrier)处对齐，
+#    等齐所有 client 后一次性放行，从而消除 ssh/启动先后带来的读取错开。
+#    并行时间 = max(各 client 的 get time)，与 main_client 内 get 计时一致。
 #
 # 用法:
 #   ./run_multi_client_read.sh [cluster.ini] [stripe_id] [rounds]
@@ -70,6 +72,9 @@ PY
 
 LEADER_IP="${CLIENT_IPS[0]}"
 LEADER_PORT=$CLIENT_PORT_BASE
+# Unique barrier session for this run; each round uses (SESSION, round) as the barrier key so
+# all clients rendezvous at the coordinator and start their get() together (removes start skew).
+SESSION="mcread_$$_$(date +%s)"
 LOG_DIR=$(mktemp -d)
 SUMMARY_FILE="$LOG_DIR/aggregate_summary.tsv"
 trap 'rm -rf "$LOG_DIR"' EXIT
@@ -121,7 +126,7 @@ for ((r = 1; r <= ROUNDS; r++)); do
     CPORT=$((CLIENT_PORT_BASE + i))
     LOG_FILE="$LOG_DIR/round${r}_client${i}.log"
     (
-      run_on_client "$CIP" "$CPORT" "--read-stripe $STRIPE_ID --read-rounds 1"
+      run_on_client "$CIP" "$CPORT" "--read-stripe $STRIPE_ID --read-rounds 1 --barrier-session $SESSION --barrier-round $r --client-index $i --client-num $CLIENT_NUM"
     ) >"$LOG_FILE" 2>&1 &
     PIDS+=($!)
   done

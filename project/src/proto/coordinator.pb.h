@@ -48,6 +48,12 @@ namespace coordinator_proto {
 class AskIfSuccess;
 struct AskIfSuccessDefaultTypeInternal;
 extern AskIfSuccessDefaultTypeInternal _AskIfSuccess_default_instance_;
+class BarrierReply;
+struct BarrierReplyDefaultTypeInternal;
+extern BarrierReplyDefaultTypeInternal _BarrierReply_default_instance_;
+class BarrierRequest;
+struct BarrierRequestDefaultTypeInternal;
+extern BarrierRequestDefaultTypeInternal _BarrierRequest_default_instance_;
 class BlockIDsAndClientIP;
 struct BlockIDsAndClientIPDefaultTypeInternal;
 extern BlockIDsAndClientIPDefaultTypeInternal _BlockIDsAndClientIP_default_instance_;
@@ -120,6 +126,8 @@ extern TwoNodeIdsFromClientDefaultTypeInternal _TwoNodeIdsFromClient_default_ins
 }  // namespace coordinator_proto
 PROTOBUF_NAMESPACE_OPEN
 template<> ::coordinator_proto::AskIfSuccess* Arena::CreateMaybeMessage<::coordinator_proto::AskIfSuccess>(Arena*);
+template<> ::coordinator_proto::BarrierReply* Arena::CreateMaybeMessage<::coordinator_proto::BarrierReply>(Arena*);
+template<> ::coordinator_proto::BarrierRequest* Arena::CreateMaybeMessage<::coordinator_proto::BarrierRequest>(Arena*);
 template<> ::coordinator_proto::BlockIDsAndClientIP* Arena::CreateMaybeMessage<::coordinator_proto::BlockIDsAndClientIP>(Arena*);
 template<> ::coordinator_proto::CommitAbortKey* Arena::CreateMaybeMessage<::coordinator_proto::CommitAbortKey>(Arena*);
 template<> ::coordinator_proto::DegradedReadReply* Arena::CreateMaybeMessage<::coordinator_proto::DegradedReadReply>(Arena*);
@@ -532,6 +540,351 @@ class RepIfSetParaSuccess final :
 };
 // -------------------------------------------------------------------
 
+class BarrierRequest final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:coordinator_proto.BarrierRequest) */ {
+ public:
+  inline BarrierRequest() : BarrierRequest(nullptr) {}
+  ~BarrierRequest() override;
+  explicit PROTOBUF_CONSTEXPR BarrierRequest(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  BarrierRequest(const BarrierRequest& from);
+  BarrierRequest(BarrierRequest&& from) noexcept
+    : BarrierRequest() {
+    *this = ::std::move(from);
+  }
+
+  inline BarrierRequest& operator=(const BarrierRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline BarrierRequest& operator=(BarrierRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const BarrierRequest& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const BarrierRequest* internal_default_instance() {
+    return reinterpret_cast<const BarrierRequest*>(
+               &_BarrierRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    2;
+
+  friend void swap(BarrierRequest& a, BarrierRequest& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(BarrierRequest* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(BarrierRequest* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  BarrierRequest* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<BarrierRequest>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const BarrierRequest& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const BarrierRequest& from) {
+    BarrierRequest::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(BarrierRequest* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "coordinator_proto.BarrierRequest";
+  }
+  protected:
+  explicit BarrierRequest(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kSessionFieldNumber = 1,
+    kExpectedNumFieldNumber = 2,
+    kClientIndexFieldNumber = 3,
+    kRoundFieldNumber = 4,
+  };
+  // string session = 1;
+  void clear_session();
+  const std::string& session() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_session(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_session();
+  PROTOBUF_NODISCARD std::string* release_session();
+  void set_allocated_session(std::string* session);
+  private:
+  const std::string& _internal_session() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_session(const std::string& value);
+  std::string* _internal_mutable_session();
+  public:
+
+  // int32 expected_num = 2;
+  void clear_expected_num();
+  int32_t expected_num() const;
+  void set_expected_num(int32_t value);
+  private:
+  int32_t _internal_expected_num() const;
+  void _internal_set_expected_num(int32_t value);
+  public:
+
+  // int32 client_index = 3;
+  void clear_client_index();
+  int32_t client_index() const;
+  void set_client_index(int32_t value);
+  private:
+  int32_t _internal_client_index() const;
+  void _internal_set_client_index(int32_t value);
+  public:
+
+  // int32 round = 4;
+  void clear_round();
+  int32_t round() const;
+  void set_round(int32_t value);
+  private:
+  int32_t _internal_round() const;
+  void _internal_set_round(int32_t value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:coordinator_proto.BarrierRequest)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr session_;
+    int32_t expected_num_;
+    int32_t client_index_;
+    int32_t round_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_coordinator_2eproto;
+};
+// -------------------------------------------------------------------
+
+class BarrierReply final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:coordinator_proto.BarrierReply) */ {
+ public:
+  inline BarrierReply() : BarrierReply(nullptr) {}
+  ~BarrierReply() override;
+  explicit PROTOBUF_CONSTEXPR BarrierReply(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  BarrierReply(const BarrierReply& from);
+  BarrierReply(BarrierReply&& from) noexcept
+    : BarrierReply() {
+    *this = ::std::move(from);
+  }
+
+  inline BarrierReply& operator=(const BarrierReply& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline BarrierReply& operator=(BarrierReply&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const BarrierReply& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const BarrierReply* internal_default_instance() {
+    return reinterpret_cast<const BarrierReply*>(
+               &_BarrierReply_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    3;
+
+  friend void swap(BarrierReply& a, BarrierReply& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(BarrierReply* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(BarrierReply* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  BarrierReply* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<BarrierReply>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const BarrierReply& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const BarrierReply& from) {
+    BarrierReply::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(BarrierReply* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "coordinator_proto.BarrierReply";
+  }
+  protected:
+  explicit BarrierReply(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kReleasedFieldNumber = 1,
+    kArrivedNumFieldNumber = 2,
+  };
+  // bool released = 1;
+  void clear_released();
+  bool released() const;
+  void set_released(bool value);
+  private:
+  bool _internal_released() const;
+  void _internal_set_released(bool value);
+  public:
+
+  // int32 arrived_num = 2;
+  void clear_arrived_num();
+  int32_t arrived_num() const;
+  void set_arrived_num(int32_t value);
+  private:
+  int32_t _internal_arrived_num() const;
+  void _internal_set_arrived_num(int32_t value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:coordinator_proto.BarrierReply)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    bool released_;
+    int32_t arrived_num_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_coordinator_2eproto;
+};
+// -------------------------------------------------------------------
+
 class RequestToCoordinator final :
     public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:coordinator_proto.RequestToCoordinator) */ {
  public:
@@ -580,7 +933,7 @@ class RequestToCoordinator final :
                &_RequestToCoordinator_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    2;
+    4;
 
   friend void swap(RequestToCoordinator& a, RequestToCoordinator& b) {
     a.Swap(&b);
@@ -733,7 +1086,7 @@ class ReplyFromCoordinator final :
                &_ReplyFromCoordinator_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    3;
+    5;
 
   friend void swap(ReplyFromCoordinator& a, ReplyFromCoordinator& b) {
     a.Swap(&b);
@@ -886,7 +1239,7 @@ class RequestProxyIPPort final :
                &_RequestProxyIPPort_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    4;
+    6;
 
   friend void swap(RequestProxyIPPort& a, RequestProxyIPPort& b) {
     a.Swap(&b);
@@ -1066,7 +1419,7 @@ class ReplyProxyIPPort final :
                &_ReplyProxyIPPort_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    5;
+    7;
 
   friend void swap(ReplyProxyIPPort& a, ReplyProxyIPPort& b) {
     a.Swap(&b);
@@ -1230,7 +1583,7 @@ class CommitAbortKey final :
                &_CommitAbortKey_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    6;
+    8;
 
   friend void swap(CommitAbortKey& a, CommitAbortKey& b) {
     a.Swap(&b);
@@ -1416,7 +1769,7 @@ class ReplyProxyIPsPorts final :
                &_ReplyProxyIPsPorts_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    7;
+    9;
 
   friend void swap(ReplyProxyIPsPorts& a, ReplyProxyIPsPorts& b) {
     a.Swap(&b);
@@ -1691,7 +2044,7 @@ class AskIfSuccess final :
                &_AskIfSuccess_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    8;
+    10;
 
   friend void swap(AskIfSuccess& a, AskIfSuccess& b) {
     a.Swap(&b);
@@ -1866,7 +2219,7 @@ class RepIfSuccess final :
                &_RepIfSuccess_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    9;
+    11;
 
   friend void swap(RepIfSuccess& a, RepIfSuccess& b) {
     a.Swap(&b);
@@ -2014,7 +2367,7 @@ class KeyAndClientIP final :
                &_KeyAndClientIP_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    10;
+    12;
 
   friend void swap(KeyAndClientIP& a, KeyAndClientIP& b) {
     a.Swap(&b);
@@ -2194,7 +2547,7 @@ class RepIfGetSuccess final :
                &_RepIfGetSuccess_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    11;
+    13;
 
   friend void swap(RepIfGetSuccess& a, RepIfGetSuccess& b) {
     a.Swap(&b);
@@ -2353,7 +2706,7 @@ class BlockIDsAndClientIP final :
                &_BlockIDsAndClientIP_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    12;
+    14;
 
   friend void swap(BlockIDsAndClientIP& a, BlockIDsAndClientIP& b) {
     a.Swap(&b);
@@ -2550,7 +2903,7 @@ class KeyFromClient final :
                &_KeyFromClient_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    13;
+    15;
 
   friend void swap(KeyFromClient& a, KeyFromClient& b) {
     a.Swap(&b);
@@ -2703,7 +3056,7 @@ class StripeIdFromClient final :
                &_StripeIdFromClient_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    14;
+    16;
 
   friend void swap(StripeIdFromClient& a, StripeIdFromClient& b) {
     a.Swap(&b);
@@ -2851,7 +3204,7 @@ class StripeIdAndBlockIDsFromClient final :
                &_StripeIdAndBlockIDsFromClient_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    15;
+    17;
 
   friend void swap(StripeIdAndBlockIDsFromClient& a, StripeIdAndBlockIDsFromClient& b) {
     a.Swap(&b);
@@ -3049,7 +3402,7 @@ class MaintenanceReadRequest final :
                &_MaintenanceReadRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    16;
+    18;
 
   friend void swap(MaintenanceReadRequest& a, MaintenanceReadRequest& b) {
     a.Swap(&b);
@@ -3274,7 +3627,7 @@ class NodeIdFromClient final :
                &_NodeIdFromClient_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    17;
+    19;
 
   friend void swap(NodeIdFromClient& a, NodeIdFromClient& b) {
     a.Swap(&b);
@@ -3422,7 +3775,7 @@ class TwoNodeIdsFromClient final :
                &_TwoNodeIdsFromClient_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    18;
+    20;
 
   friend void swap(TwoNodeIdsFromClient& a, TwoNodeIdsFromClient& b) {
     a.Swap(&b);
@@ -3581,7 +3934,7 @@ class RepIfDeling final :
                &_RepIfDeling_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    19;
+    21;
 
   friend void swap(RepIfDeling& a, RepIfDeling& b) {
     a.Swap(&b);
@@ -3729,7 +4082,7 @@ class RepStripeIds final :
                &_RepStripeIds_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    20;
+    22;
 
   friend void swap(RepStripeIds& a, RepStripeIds& b) {
     a.Swap(&b);
@@ -3891,7 +4244,7 @@ class RepBlockNum final :
                &_RepBlockNum_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    21;
+    23;
 
   friend void swap(RepBlockNum& a, RepBlockNum& b) {
     a.Swap(&b);
@@ -4039,7 +4392,7 @@ class DegradedReadReply final :
                &_DegradedReadReply_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    22;
+    24;
 
   friend void swap(DegradedReadReply& a, DegradedReadReply& b) {
     a.Swap(&b);
@@ -4220,7 +4573,7 @@ class RecoveryReply final :
                &_RecoveryReply_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    23;
+    25;
 
   friend void swap(RecoveryReply& a, RecoveryReply& b) {
     a.Swap(&b);
@@ -4602,6 +4955,164 @@ inline void RepIfSetParaSuccess::_internal_set_ifsetparameter(bool value) {
 inline void RepIfSetParaSuccess::set_ifsetparameter(bool value) {
   _internal_set_ifsetparameter(value);
   // @@protoc_insertion_point(field_set:coordinator_proto.RepIfSetParaSuccess.ifsetparameter)
+}
+
+// -------------------------------------------------------------------
+
+// BarrierRequest
+
+// string session = 1;
+inline void BarrierRequest::clear_session() {
+  _impl_.session_.ClearToEmpty();
+}
+inline const std::string& BarrierRequest::session() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.BarrierRequest.session)
+  return _internal_session();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void BarrierRequest::set_session(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.session_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:coordinator_proto.BarrierRequest.session)
+}
+inline std::string* BarrierRequest::mutable_session() {
+  std::string* _s = _internal_mutable_session();
+  // @@protoc_insertion_point(field_mutable:coordinator_proto.BarrierRequest.session)
+  return _s;
+}
+inline const std::string& BarrierRequest::_internal_session() const {
+  return _impl_.session_.Get();
+}
+inline void BarrierRequest::_internal_set_session(const std::string& value) {
+  
+  _impl_.session_.Set(value, GetArenaForAllocation());
+}
+inline std::string* BarrierRequest::_internal_mutable_session() {
+  
+  return _impl_.session_.Mutable(GetArenaForAllocation());
+}
+inline std::string* BarrierRequest::release_session() {
+  // @@protoc_insertion_point(field_release:coordinator_proto.BarrierRequest.session)
+  return _impl_.session_.Release();
+}
+inline void BarrierRequest::set_allocated_session(std::string* session) {
+  if (session != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.session_.SetAllocated(session, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.session_.IsDefault()) {
+    _impl_.session_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:coordinator_proto.BarrierRequest.session)
+}
+
+// int32 expected_num = 2;
+inline void BarrierRequest::clear_expected_num() {
+  _impl_.expected_num_ = 0;
+}
+inline int32_t BarrierRequest::_internal_expected_num() const {
+  return _impl_.expected_num_;
+}
+inline int32_t BarrierRequest::expected_num() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.BarrierRequest.expected_num)
+  return _internal_expected_num();
+}
+inline void BarrierRequest::_internal_set_expected_num(int32_t value) {
+  
+  _impl_.expected_num_ = value;
+}
+inline void BarrierRequest::set_expected_num(int32_t value) {
+  _internal_set_expected_num(value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.BarrierRequest.expected_num)
+}
+
+// int32 client_index = 3;
+inline void BarrierRequest::clear_client_index() {
+  _impl_.client_index_ = 0;
+}
+inline int32_t BarrierRequest::_internal_client_index() const {
+  return _impl_.client_index_;
+}
+inline int32_t BarrierRequest::client_index() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.BarrierRequest.client_index)
+  return _internal_client_index();
+}
+inline void BarrierRequest::_internal_set_client_index(int32_t value) {
+  
+  _impl_.client_index_ = value;
+}
+inline void BarrierRequest::set_client_index(int32_t value) {
+  _internal_set_client_index(value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.BarrierRequest.client_index)
+}
+
+// int32 round = 4;
+inline void BarrierRequest::clear_round() {
+  _impl_.round_ = 0;
+}
+inline int32_t BarrierRequest::_internal_round() const {
+  return _impl_.round_;
+}
+inline int32_t BarrierRequest::round() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.BarrierRequest.round)
+  return _internal_round();
+}
+inline void BarrierRequest::_internal_set_round(int32_t value) {
+  
+  _impl_.round_ = value;
+}
+inline void BarrierRequest::set_round(int32_t value) {
+  _internal_set_round(value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.BarrierRequest.round)
+}
+
+// -------------------------------------------------------------------
+
+// BarrierReply
+
+// bool released = 1;
+inline void BarrierReply::clear_released() {
+  _impl_.released_ = false;
+}
+inline bool BarrierReply::_internal_released() const {
+  return _impl_.released_;
+}
+inline bool BarrierReply::released() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.BarrierReply.released)
+  return _internal_released();
+}
+inline void BarrierReply::_internal_set_released(bool value) {
+  
+  _impl_.released_ = value;
+}
+inline void BarrierReply::set_released(bool value) {
+  _internal_set_released(value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.BarrierReply.released)
+}
+
+// int32 arrived_num = 2;
+inline void BarrierReply::clear_arrived_num() {
+  _impl_.arrived_num_ = 0;
+}
+inline int32_t BarrierReply::_internal_arrived_num() const {
+  return _impl_.arrived_num_;
+}
+inline int32_t BarrierReply::arrived_num() const {
+  // @@protoc_insertion_point(field_get:coordinator_proto.BarrierReply.arrived_num)
+  return _internal_arrived_num();
+}
+inline void BarrierReply::_internal_set_arrived_num(int32_t value) {
+  
+  _impl_.arrived_num_ = value;
+}
+inline void BarrierReply::set_arrived_num(int32_t value) {
+  _internal_set_arrived_num(value);
+  // @@protoc_insertion_point(field_set:coordinator_proto.BarrierReply.arrived_num)
 }
 
 // -------------------------------------------------------------------
@@ -6571,6 +7082,10 @@ inline void RecoveryReply::set_allocated_maintenance_note(std::string* maintenan
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

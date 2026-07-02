@@ -85,6 +85,54 @@ namespace ECProject
     return grpc::Status::OK;
   }
 
+  grpc::Status CoordinatorImpl::clientBarrier(
+      grpc::ServerContext *context,
+      const coordinator_proto::BarrierRequest *request,
+      coordinator_proto::BarrierReply *reply)
+  {
+    (void)context;
+    const std::string key = request->session() + "#" + std::to_string(request->round());
+    const int expected = request->expected_num();
+    // Safety valve: if a client never shows up, release the rest instead of hanging forever.
+    const auto kBarrierTimeout = std::chrono::seconds(120);
+
+    std::unique_lock<std::mutex> lock(m_barrier_mutex);
+    const int arrived = ++m_barrier_arrived[key];
+    if (arrived >= expected)
+    {
+      // Last arrival releases everyone.
+      m_barrier_released[key] = arrived;
+      m_barrier_cv.notify_all();
+    }
+    else
+    {
+      const bool ok = m_barrier_cv.wait_for(lock, kBarrierTimeout, [&]() {
+        return m_barrier_released.count(key) > 0;
+      });
+      if (!ok)
+      {
+        // Timeout: force-release with whoever arrived so callers do not block indefinitely.
+        std::cout << "[Coordinator][Barrier] key=" << key << " timeout, arrived "
+                  << m_barrier_arrived[key] << "/" << expected << ", force release" << std::endl;
+        m_barrier_released[key] = m_barrier_arrived[key];
+        m_barrier_cv.notify_all();
+      }
+    }
+
+    const int release_size = m_barrier_released[key];
+    reply->set_released(true);
+    reply->set_arrived_num(release_size);
+
+    // Once every released caller has been served, drop the bookkeeping for this key.
+    if (++m_barrier_served[key] >= release_size)
+    {
+      m_barrier_arrived.erase(key);
+      m_barrier_released.erase(key);
+      m_barrier_served.erase(key);
+    }
+    return grpc::Status::OK;
+  }
+
   grpc::Status CoordinatorImpl::uploadOriginKeyValue(
       grpc::ServerContext *context,
       const coordinator_proto::RequestProxyIPPort *keyValueSize,

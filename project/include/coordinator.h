@@ -39,6 +39,11 @@ namespace ECProject
         grpc::ServerContext *context,
         const coordinator_proto::RequestToCoordinator *helloRequestToCoordinator,
         coordinator_proto::ReplyFromCoordinator *helloReplyFromCoordinator) override;
+    // Multi-client rendezvous barrier (see coordinator.proto).
+    grpc::Status clientBarrier(
+        grpc::ServerContext *context,
+        const coordinator_proto::BarrierRequest *request,
+        coordinator_proto::BarrierReply *reply) override;
     // set
     grpc::Status uploadOriginKeyValue(
         grpc::ServerContext *context,
@@ -236,6 +241,13 @@ namespace ECProject
   private:
     std::mutex m_mutex;
     std::condition_variable cv;
+    // Multi-client barrier state, keyed by "session#round". Dedicated mutex/cv so barrier
+    // waits never block on (or get spuriously woken by) the main coordinator mutex.
+    std::mutex m_barrier_mutex;
+    std::condition_variable m_barrier_cv;
+    std::unordered_map<std::string, int> m_barrier_arrived;  // arrivals so far
+    std::unordered_map<std::string, int> m_barrier_released; // release size (0 = not yet)
+    std::unordered_map<std::string, int> m_barrier_served;   // callers already returned
     std::map<std::string, std::unique_ptr<proxy_proto::proxyService::Stub>>
         m_proxy_ptrs;
     ECSchema m_encode_parameters;
