@@ -1267,6 +1267,44 @@ namespace ECProject
             socket_data.close(ignore_ec);
           };
 
+          // Raw/min (tag=2): the combined partial width this rack would send (global batch +
+          // local fill) exceeds the number of raw blocks it holds, so send its raw read blocks
+          // once (ids + data) and let the dest apply the coefficients. Skips tag=0 / tag=1.
+          if (maintenance_header && request_copy->send_raw_union())
+          {
+            const int nb = request_copy->datanodeip_size();
+            asio::ip::tcp::resolver resolver(io_context);
+            asio::ip::tcp::resolver::results_type endpoints =
+                resolver.resolve(client_ip, std::to_string(client_port));
+            asio::ip::tcp::socket socket_data(io_context);
+            asio::error_code error;
+            asio::connect(socket_data, endpoints, error);
+            if (!error)
+            {
+              uint32_t hdr[2] = {2u, static_cast<uint32_t>(nb)};
+              asio::write(socket_data, asio::buffer(hdr, sizeof(hdr)), error);
+              std::vector<uint32_t> ids(nb);
+              for (int j = 0; j < nb; j++)
+                ids[j] = static_cast<uint32_t>(request_copy->blockids(j));
+              if (nb > 0)
+                asio::write(socket_data, asio::buffer(ids.data(), ids.size() * sizeof(uint32_t)), error);
+              for (int j = 0; j < nb; j++)
+                asio::write(socket_data, asio::buffer(get_bufs[j], m_sys_config->BlockSize), error);
+              asio::error_code ignore_ec;
+              socket_data.shutdown(asio::ip::tcp::socket::shutdown_send, ignore_ec);
+              socket_data.close(ignore_ec);
+            }
+            else
+            {
+              std::cout << "[Proxy" << m_self_cluster_id << "][Degrade read] raw-union connect error" << std::endl;
+            }
+            std::free(multi_res_buf);
+            std::free(res_buf);
+            for (int i = 0; i < request_copy->datanodeip_size(); i++)
+              std::free(get_bufs[i]);
+            return;
+          }
+
           // Phase-1 global-batch partial (tag 0).
           send_partial(0, multi_res_buf, block_num);
 
@@ -2270,15 +2308,18 @@ namespace ECProject
             std::free(get_bufs[i]);
         }
 
-        // Accept all maintenance connections (tag=0 global, tag=1 local fill); route by header.
-        const int total_conn = cross_rack_num + local_fill_sender_num;
+        // Accept all maintenance connections (tag=0 global, tag=1 local fill, tag=2 raw); route by
+        // header. A tag=2 message carries nblocks uint32 block ids before its payload.
+        const int raw_sender_num = recovery_request->raw_sender_num();
+        const int total_conn = cross_rack_num + local_fill_sender_num + raw_sender_num;
         std::vector<char *> global_bufs;
         std::vector<char *> local_bufs;
+        std::vector<std::pair<std::vector<int>, char *>> raw_srcs; // (block ids, nblocks*block_size buffer)
         std::mutex bufs_mutex;
         std::vector<std::thread> accept_threads;
         for (int i = 0; i < total_conn; i++)
         {
-          accept_threads.push_back(std::thread([this, block_size, &global_bufs, &local_bufs, &bufs_mutex]() {
+          accept_threads.push_back(std::thread([this, block_size, &global_bufs, &local_bufs, &raw_srcs, &bufs_mutex]() {
             asio::ip::tcp::socket socket(this->io_context);
             this->acceptor.accept(socket);
             asio::error_code error;
@@ -2286,6 +2327,22 @@ namespace ECProject
             asio::read(socket, asio::buffer(hdr, sizeof(hdr)), error);
             uint32_t tag = hdr[0];
             uint32_t nblocks = hdr[1];
+            if (tag == 2)
+            {
+              std::vector<uint32_t> ids(nblocks);
+              if (nblocks > 0)
+                asio::read(socket, asio::buffer(ids.data(), ids.size() * sizeof(uint32_t)), error);
+              size_t payload = static_cast<size_t>(nblocks) * block_size;
+              char *buf = static_cast<char *>(std::aligned_alloc(32, payload));
+              asio::read(socket, asio::buffer(buf, payload), error);
+              asio::error_code ignore_ec;
+              socket.shutdown(asio::ip::tcp::socket::shutdown_receive, ignore_ec);
+              socket.close(ignore_ec);
+              std::vector<int> id_vec(ids.begin(), ids.end());
+              std::lock_guard<std::mutex> lock(bufs_mutex);
+              raw_srcs.emplace_back(std::move(id_vec), buf);
+              return;
+            }
             size_t payload = static_cast<size_t>(nblocks) * block_size;
             char *buf = static_cast<char *>(std::aligned_alloc(32, payload));
             asio::read(socket, asio::buffer(buf, payload), error);
@@ -2299,6 +2356,52 @@ namespace ECProject
         }
         for (auto &th : accept_threads)
           th.join();
+
+        // Fold raw (tag=2) helpers into the global batch: every raw block id is a global decode
+        // source, so apply the global-decode coefficients to it and XOR into res_buf. (Same math a
+        // partial helper would have done; each block lives on exactly one rack, so no double count.)
+        if (!raw_srcs.empty())
+        {
+          std::vector<int> all_failed_for_decode, recover_ids;
+          for (int i = 0; i < recovery_request->all_failed_block_ids_size(); i++)
+            all_failed_for_decode.push_back(recovery_request->all_failed_block_ids(i));
+          for (int i = 0; i < block_num; i++)
+            recover_ids.push_back(recovery_request->failed_block_ids(i));
+          if (all_failed_for_decode.empty()) all_failed_for_decode = recover_ids;
+          for (auto &rs : raw_srcs)
+          {
+            const std::vector<int> &rids = rs.first;
+            const int rn = static_cast<int>(rids.size());
+            if (rn == 0) continue;
+            int rrows = 0, rcols = 0;
+            std::vector<int> decode_out;
+            std::vector<unsigned char> rmatrix(static_cast<size_t>(block_num) * rn);
+            if (!get_global_decode_plan(m_sys_config->k, m_sys_config->r, m_sys_config->z, code_type,
+                                        all_failed_for_decode, decode_out, &rids, rmatrix.data(),
+                                        rrows, rcols, &recover_ids))
+            {
+              std::cout << "[Proxy" << m_self_cluster_id
+                        << "][Maintenance Repair] raw global decode plan failed!" << std::endl;
+              continue;
+            }
+            std::vector<unsigned char *> rsrc(rn);
+            for (int j = 0; j < rn; j++)
+              rsrc[j] = reinterpret_cast<unsigned char *>(rs.second) + static_cast<size_t>(j) * block_size;
+            char *contrib = static_cast<char *>(std::aligned_alloc(32, global_total));
+            std::vector<unsigned char *> out_ptrs(block_num);
+            for (int f = 0; f < block_num; f++)
+              out_ptrs[f] = reinterpret_cast<unsigned char *>(contrib) + static_cast<size_t>(f) * block_size;
+            std::vector<unsigned char> g_tbls(static_cast<size_t>(rcols) * rrows * 32);
+            ec_init_tables(rcols, rrows, rmatrix.data(), g_tbls.data());
+            ec_encode_data_avx2(block_size, rcols, rrows, g_tbls.data(), rsrc.data(), out_ptrs.data());
+            char *acc = static_cast<char *>(std::aligned_alloc(32, global_total));
+            char *xs[3] = {res_buf, contrib, acc};
+            xor_avx(3, static_cast<int>(global_total), (void **)xs);
+            std::free(res_buf);
+            std::free(contrib);
+            res_buf = acc;
+          }
+        }
 
         // Reconstruct global batch: res_buf ^= XOR(all tag=0 partials).
         if (!global_bufs.empty())
@@ -2381,6 +2484,21 @@ namespace ECProject
                                       static_cast<size_t>(slot->second) * block_size);
               dest_src_col.push_back(its->second);
             }
+            // (c) Raw (tag=2) helper blocks that are local-fill sources: treat each like a
+            // directly-held source (its data arrived over the network instead of a local read).
+            for (auto &rs : raw_srcs)
+            {
+              const std::vector<int> &rids = rs.first;
+              for (size_t j = 0; j < rids.size(); j++)
+              {
+                auto it = src_idx.find(rids[j]);
+                if (it == src_idx.end())
+                  continue;
+                dest_src_ptrs.push_back(reinterpret_cast<unsigned char *>(rs.second) +
+                                        static_cast<size_t>(j) * block_size);
+                dest_src_col.push_back(it->second);
+              }
+            }
             // Dest contribution: leftover_bufs[rr] = sum coeff[rr][s] * src_s  (overwrites zeros).
             if (!dest_src_ptrs.empty())
             {
@@ -2420,34 +2538,62 @@ namespace ECProject
             std::free(b);
         }
 
-        // Stream all (global-batch + leftover) blocks to the client (block-id prefixed).
-        std::string client_ip = recovery_request->replaced_node_ip();
-        int client_port = recovery_request->replaced_node_port();
-        auto send_block = [&](int bid, const char *buf) {
-          asio::io_context send_io_context;
-          asio::ip::tcp::socket socket(send_io_context);
-          asio::ip::tcp::resolver resolver(send_io_context);
-          asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(client_ip, std::to_string(client_port));
-          asio::connect(socket, endpoints);
-          uint32_t block_id = static_cast<uint32_t>(bid);
-          asio::write(socket, asio::buffer(&block_id, sizeof(uint32_t)));
-          asio::write(socket, asio::buffer(buf, block_size));
-          asio::error_code ignore_ec;
-          socket.shutdown(asio::ip::tcp::socket::shutdown_send, ignore_ec);
-          socket.close(ignore_ec);
-        };
-        for (int f = 0; f < block_num; f++)
-          send_block(recovery_request->failed_block_ids(f), res_buf + static_cast<size_t>(f) * block_size);
-        for (int i = 0; i < leftover_num; i++)
-          send_block(recovery_request->leftover_block_ids(i), leftover_bufs[i]);
+        if (recovery_request->send_to_client())
+        {
+          // Maintenance read: stream all (global-batch + leftover) blocks to the client (block-id prefixed).
+          std::string client_ip = recovery_request->replaced_node_ip();
+          int client_port = recovery_request->replaced_node_port();
+          auto send_block = [&](int bid, const char *buf) {
+            asio::io_context send_io_context;
+            asio::ip::tcp::socket socket(send_io_context);
+            asio::ip::tcp::resolver resolver(send_io_context);
+            asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(client_ip, std::to_string(client_port));
+            asio::connect(socket, endpoints);
+            uint32_t block_id = static_cast<uint32_t>(bid);
+            asio::write(socket, asio::buffer(&block_id, sizeof(uint32_t)));
+            asio::write(socket, asio::buffer(buf, block_size));
+            asio::error_code ignore_ec;
+            socket.shutdown(asio::ip::tcp::socket::shutdown_send, ignore_ec);
+            socket.close(ignore_ec);
+          };
+          for (int f = 0; f < block_num; f++)
+            send_block(recovery_request->failed_block_ids(f), res_buf + static_cast<size_t>(f) * block_size);
+          for (int i = 0; i < leftover_num; i++)
+            send_block(recovery_request->leftover_block_ids(i), leftover_bufs[i]);
+          std::cout << "[Proxy" << m_self_cluster_id << "][Maintenance Read] two-phase: streamed "
+                    << block_num << " global-batch + " << leftover_num << " local-fill block(s) to client "
+                    << client_ip << ":" << client_port << std::endl;
+        }
+        else
+        {
+          // Unified two-phase repair: write every reconstructed block back to its datanode.
+          for (int f = 0; f < block_num; f++)
+          {
+            std::string key = recovery_request->failed_block_keys_size() > f ? recovery_request->failed_block_keys(f) : "";
+            int bid = recovery_request->failed_block_ids(f);
+            std::string ip = recovery_request->replaced_node_ips_size() > f ? recovery_request->replaced_node_ips(f) : "";
+            int port = recovery_request->replaced_node_ports_size() > f ? recovery_request->replaced_node_ports(f) : 0;
+            if (!key.empty() && port != 0)
+              RecoveryToDatanode(key.c_str(), bid, res_buf + static_cast<size_t>(f) * block_size, ip.c_str(), port);
+          }
+          for (int i = 0; i < leftover_num; i++)
+          {
+            std::string key = recovery_request->leftover_block_keys_size() > i ? recovery_request->leftover_block_keys(i) : "";
+            int bid = recovery_request->leftover_block_ids(i);
+            std::string ip = recovery_request->leftover_replaced_node_ips_size() > i ? recovery_request->leftover_replaced_node_ips(i) : "";
+            int port = recovery_request->leftover_replaced_node_ports_size() > i ? recovery_request->leftover_replaced_node_ports(i) : 0;
+            if (!key.empty() && port != 0)
+              RecoveryToDatanode(key.c_str(), bid, leftover_bufs[i], ip.c_str(), port);
+          }
+          std::cout << "[Proxy" << m_self_cluster_id << "][Maintenance Repair] two-phase: wrote back "
+                    << block_num << " global-batch + " << leftover_num << " local-fill block(s)" << std::endl;
+        }
 
         for (char *b : global_bufs) std::free(b);
         for (char *b : local_bufs) std::free(b);
         for (char *b : leftover_bufs) if (b) std::free(b);
+        for (auto &rs : raw_srcs) std::free(rs.second);
         std::free(res_buf);
-        std::cout << "[Proxy" << m_self_cluster_id << "][Maintenance Read] two-phase: streamed "
-                  << block_num << " global-batch + " << leftover_num << " local-fill block(s) to client "
-                  << client_ip << ":" << client_port << std::endl;
         return grpc::Status::OK;
       }
 

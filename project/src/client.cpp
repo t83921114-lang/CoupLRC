@@ -1240,6 +1240,25 @@ namespace ECProject
     return true;
   }
 
+  bool Client::two_phase_repair(int stripe_id, const std::vector<int> &all_failed_block_ids,
+                                const std::vector<int> &recovery_block_ids)
+  {
+    grpc::ClientContext context;
+    coordinator_proto::StripeIdAndBlockIDsFromClient request;
+    request.set_stripe_id(stripe_id);
+    for (int bid : all_failed_block_ids)
+      request.add_block_ids(bid);
+    for (int bid : recovery_block_ids)
+      request.add_recovery_block_ids(bid);
+    coordinator_proto::RecoveryReply reply;
+    grpc::Status status = m_coordinator_ptr->twoPhaseRepair(&context, request, &reply);
+    if (!status.ok()) {
+      std::cout << "[Client] two-phase repair failed: " << status.error_message() << std::endl;
+      return false;
+    }
+    return true;
+  }
+
   namespace {
     struct RecoveryBreakdownTimes {
       double disk_read = 0.0;

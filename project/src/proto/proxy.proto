@@ -191,6 +191,12 @@ message DegradedReadRequest{
   //   row rr = sum over its held sources s of coeff[rr][s] * block_s  (GF(2^8), not plain XOR).
   repeated int32 leftover_block_ids = 15;
   repeated int32 local_fill_source_ids = 16;
+  // Raw/min optimization (LotusLRC unified two-phase repair): when true, this helper does NOT
+  // pre-combine its read blocks into tag=0/tag=1 partials. Instead it sends ONE tag=2 message =
+  // its raw read blocks (blockids + data), because the combined partial width it would otherwise
+  // send (global batch + local fill) exceeds the number of raw blocks it holds. The dest applies
+  // the global-decode and local-fill coefficients to these raw blocks itself.
+  bool send_raw_union = 17;
 }
 
 message PartialDecodingRequest{
@@ -281,6 +287,17 @@ message RecoveryRequest{
   // NOTE: local_parity_block_ids/ip/port/keys carry ALL dest-directly-read sources (the surviving
   // local parity block(s) plus any group member not read by a helper), not only local parities.
   repeated int32 local_fill_source_ids = 29;
+  // ---- Write-back variant of the two-phase path (LotusLRC unified single-rack repair) ----
+  // When maintenance_header is true AND send_to_client is false, the dest writes every
+  // reconstructed block back to its datanode instead of streaming to the client:
+  //   - global-batch blocks: failed_block_ids -> failed_block_keys / replaced_node_ips / _ports
+  //   - leftover blocks:     leftover_block_ids -> the parallel fields below
+  repeated string leftover_block_keys = 30;
+  repeated string leftover_replaced_node_ips = 31;
+  repeated int32 leftover_replaced_node_ports = 32;
+  // Number of tag=2 raw-block senders the dest should accept (raw/min helpers). Total accepted
+  // connections = cross_rack_num (tag=0) + local_fill_sender_num (tag=1) + raw_sender_num (tag=2).
+  int32 raw_sender_num = 33;
 }
 
 message MultipleRecoveryRequest{

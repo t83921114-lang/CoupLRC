@@ -52,6 +52,11 @@ service coordinatorService {
   rpc twoNodeRecovery(TwoNodeIdsFromClient) returns (RepBlockNum) {};
   rpc globalRecovery(StripeIdAndBlockIDsFromClient) returns (RecoveryReply) {};
   rpc globalRecoveryBreakdown(StripeIdAndBlockIDsFromClient) returns (RecoveryReply) {};
+  // LotusLRC unified single-rack repair: reconstruct the global batch (block_ids minus
+  // recovery_block_ids leftover) AND local-fill the leftover in ONE round at the dest, with
+  // per-helper raw/min transfer, then write every reconstructed block back to disk.
+  // block_ids = all failed blocks on the rack; recovery_block_ids = the global-batch subset.
+  rpc twoPhaseRepair(StripeIdAndBlockIDsFromClient) returns (RecoveryReply) {};
   // maintenance-robust normal read: reconstruct the failed rack's data blocks in memory
   // (no disk write-back) using the single-rack N-1/N-2 split, then stream the full stripe's
   // data blocks back to the client.

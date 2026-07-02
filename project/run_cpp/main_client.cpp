@@ -709,6 +709,15 @@ int main(int argc, char **argv)
                 std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
                 for (const RackPlan &plan : rack_plans)
                 {
+                    // LotusLRC unified single-rack repair: fold the global batch and the leftover
+                    // local fill into ONE round with per-helper raw/min transfer (toggle below).
+                    const bool use_unified_two_phase =
+                        (code_type == "LotusLRC" && !plan.global_batch.empty() && !plan.local_fill.empty());
+                    if (use_unified_two_phase)
+                    {
+                        client.two_phase_repair(test_stripe_id, plan.failed, plan.global_batch);
+                        continue;
+                    }
                     // Step 1: global batch recovers the bulk (N-2 for Lotus, N-1 for others).
                     if (!plan.global_batch.empty())
                         client.multi_block_recovery(test_stripe_id, plan.failed, plan.global_batch);

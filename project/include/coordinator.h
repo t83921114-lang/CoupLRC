@@ -118,6 +118,10 @@ namespace ECProject
       grpc::ServerContext *context,
       const coordinator_proto::StripeIdAndBlockIDsFromClient *request,
       coordinator_proto::RecoveryReply *replyClient) override;
+    grpc::Status twoPhaseRepair(
+      grpc::ServerContext *context,
+      const coordinator_proto::StripeIdAndBlockIDsFromClient *request,
+      coordinator_proto::RecoveryReply *replyClient) override;
     grpc::Status globalRecoveryBreakdown(
       grpc::ServerContext *context,
       const coordinator_proto::StripeIdAndBlockIDsFromClient *request,
@@ -195,6 +199,13 @@ namespace ECProject
                                                    const std::vector<int> &global_batch,
                                                    const std::vector<int> &leftover,
                                                    std::string client_ip, int client_port);
+    // LotusLRC unified single-rack repair (write-back variant of the two-phase path): reconstruct
+    // the global batch + local-fill the leftover in ONE round with per-helper raw/min transfer,
+    // then write every reconstructed block back to its original datanode.
+    bool execute_two_phase_repair(int stripe_id,
+                                  const std::vector<int> &failed_data,
+                                  const std::vector<int> &global_batch,
+                                  const std::vector<int> &leftover);
     // Decide whether the two-phase local fill is feasible for the given leftover blocks. On
     // success fills local_parity_ids (per leftover's local group) and surviving_siblings; on
     // failure returns false and sets note (e.g. local parity also on the failed rack).

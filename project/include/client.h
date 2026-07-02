@@ -78,6 +78,11 @@ namespace ECProject
     // all_failed_block_ids: full failed set for decode plan; recovery_block_ids: subset to repair (empty = repair all)
     bool multi_block_recovery(int stripe_id, std::vector<int> all_failed_block_ids,
                               const std::vector<int> &recovery_block_ids = {});
+    // LotusLRC unified single-rack repair: reconstruct the global batch (recovery_block_ids) and
+    // local-fill the leftover (all_failed_block_ids minus recovery_block_ids) in ONE round with
+    // per-helper raw/min transfer, writing every block back to disk.
+    bool two_phase_repair(int stripe_id, const std::vector<int> &all_failed_block_ids,
+                          const std::vector<int> &recovery_block_ids);
     bool multi_block_recovery_breakdown(int stripe_id, std::vector<int> all_failed_block_ids,
                                         double &disk_read_time, double &network_time,
                                         double &decode_time, double &disk_write_time,
