@@ -663,7 +663,8 @@ apply_bandwidth_limits() {
             echo "fail | proxy | $iface | tc ingress setup failed" >&2
             return 1
         }
-        apply_proxy_inter_ingress_limits "$IFB_DEV" "$inter_rate" "$max_rate" "${INTER_IPS[@]}" || {
+        apply_proxy_inter_ingress_limits "$IFB_DEV" "$inter_rate" "$max_rate" \
+            "${INTER_IPS[@]}" "${CLIENT_IPS[@]}" || {
             echo "fail | proxy | $iface | tc ingress setup failed" >&2
             return 1
         }
@@ -683,7 +684,7 @@ apply_bandwidth_limits() {
             return 1
         }
         apply_proxy_ingress_limits "$IFB_DEV" "$inter_rate" "$intra_rate" "$max_rate" \
-            "${INTER_IPS[@]}" -- "${INTRA_IPS[@]}" || {
+            "${INTER_IPS[@]}" "${CLIENT_IPS[@]}" -- "${INTRA_IPS[@]}" || {
             echo "fail | proxy | $iface | tc ingress setup failed" >&2
             return 1
         }
