@@ -368,7 +368,7 @@ int main(int argc, char **argv)
     std::cout << std::endl;
 */
 
-
+/*
     //for degraded read test (4 rounds, k blocks per round)
     const int degraded_read_rounds = 5;
     const double degraded_stripe_mb = static_cast<double>(k) * block_size;
@@ -408,7 +408,7 @@ int main(int argc, char **argv)
     print_throughput_summary("Degraded read", degraded_round_time_spans, degraded_stripe_mb);
     std::cout << "Degraded read test end" << std::endl;
     std::cout << std::endl;
-
+*?
 
 /*
     // Maintenance-robust normal read（与 Normal/Degraded read 共用预写后的 stripe 0）
@@ -550,7 +550,7 @@ int main(int argc, char **argv)
         std::cout << "One block recovery test end" << std::endl;
         std::cout << std::endl;
     }
-
+*/
 
     // for two block recovery (test blocks 0 and 1)
     {
@@ -572,7 +572,7 @@ int main(int argc, char **argv)
         std::cout << "Two block recovery test end" << std::endl;
         std::cout << std::endl;
     }
-*/
+
 
  /*
     // 打点 breakdown test for two block recovery (test blocks 0 and 1)
@@ -628,7 +628,7 @@ int main(int argc, char **argv)
         std::cout << std::endl;
     }
 */
-
+/*
 // Multi block recovery: every round repairs ALL racks once; average over rounds.
     {
         const int test_stripe_id = 0;
@@ -736,6 +736,8 @@ int main(int argc, char **argv)
             std::cout << std::endl;
         }
     }
+*/
+
 
 /*
 //多条带单机架修复
