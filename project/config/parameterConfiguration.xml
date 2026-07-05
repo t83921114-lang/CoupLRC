@@ -2,12 +2,14 @@
 <Configuration>
     <AlignedSize>4096</AlignedSize>
     <UnitSize>8192</UnitSize>
-    <BlockSize>33554432</BlockSize>
-    <!--1048576-->   <!-- 1MB -->
-    <!--8388608-->   <!-- 8MB -->
-    <!--16777216-->  <!-- 16MB -->
-    <!--33554432-->  <!-- 32MB -->
-    <!--67108864-->  <!-- 64MB -->
+    <BlockSize>67108864</BlockSize>
+    <!--1048576-->    <!-- 1MB -->
+    <!--8388608-->    <!-- 8MB -->
+    <!--16777216-->   <!-- 16MB -->
+    <!--33554432-->   <!-- 32MB -->
+    <!--67108864-->   <!-- 64MB -->
+    <!--134217728-->  <!-- 128MB -->
+    <!--268435456-->  <!-- 256MB -->
     <DatanodeNumPerCluster>6</DatanodeNumPerCluster>
     <ClusterNum>21</ClusterNum>
     <CoordinatorIP>172.16.0.3</CoordinatorIP>
@@ -17,9 +19,9 @@
     <alpha>2</alpha>
     <!-- LRC: UniLRC; LotusLRC; AzureLRC; OptimalLRC; UniformLRC -->
     <CodeType>UniformLRC</CodeType>
-    <k>48</k>
-    <r>3</r>
-    <z>4</z>
+    <k>24</k>
+    <r>2</r>
+    <z>2</z>
     <!-- <CodeType>UniformLRC</CodeType>
     <k>30</k>
     <r>6</r>
