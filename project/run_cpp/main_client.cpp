@@ -551,7 +551,7 @@ int main(int argc, char **argv)
         std::cout << std::endl;
     }
 */
-/*
+
     // for two block recovery (test blocks 0 and 1)
     {
         std::vector<std::chrono::duration<double>> multi_block_recovery_time_spans;
@@ -559,7 +559,7 @@ int main(int argc, char **argv)
         for (int i = 0; i < 5; i++)
         {
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-            client.multi_block_recovery(0, {0, 1});
+            client.multi_block_recovery(0, {0, 12});
             std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> time_span =
                 std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
@@ -572,7 +572,7 @@ int main(int argc, char **argv)
         std::cout << "Two block recovery test end" << std::endl;
         std::cout << std::endl;
     }
-*/
+
 
  /*
     // 打点 breakdown test for two block recovery (test blocks 0 and 1)
@@ -629,6 +629,7 @@ int main(int argc, char **argv)
     }
 */
 
+/*
 // Multi block recovery: every round repairs ALL racks once; average over rounds.
     {
         const int test_stripe_id = 0;
@@ -736,7 +737,7 @@ int main(int argc, char **argv)
             std::cout << std::endl;
         }
     }
-
+*/
 
 
 /*

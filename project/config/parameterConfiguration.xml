@@ -19,8 +19,8 @@
     <alpha>2</alpha>
     <!-- LRC: UniLRC; LotusLRC; AzureLRC; OptimalLRC; UniformLRC -->
     <CodeType>LotusLRC</CodeType>
-    <k>96</k>
-    <r>4</r>
+    <k>48</k>
+    <r>2</r>
     <z>8</z>
     <!-- <CodeType>UniformLRC</CodeType>
     <k>30</k>
