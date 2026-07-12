@@ -731,7 +731,7 @@ int main(int argc, char **argv)
 */
 
 
-/*
+
 //多条带单机架修复
     {
         const int failed_cluster_id = 0;
@@ -874,7 +874,7 @@ int main(int argc, char **argv)
         std::cout << std::endl;
         }
     }
-*/
+
 
 
 
