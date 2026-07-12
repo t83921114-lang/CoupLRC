@@ -175,7 +175,7 @@ void print_breakdown_summary(const char *test_name, double disk_read, double net
                              double disk_write, double recovered_mb, double e2e_seconds)
 {
     const double segment_sum = disk_read + network + decode + disk_write;
-    std::cout << test_name << " breakdown (seconds, avg over samples):" << std::endl;
+    std::cout << test_name << " breakdown (seconds):" << std::endl;
     std::cout << "  disk read:  " << disk_read << std::endl;
     std::cout << "  network:    " << network << std::endl;
     std::cout << "  decode:     " << decode << std::endl;
@@ -222,46 +222,36 @@ std::vector<int> multi_recovery_batch(const std::string &code_type, int r,
                             failed_on_rack.end() - static_cast<std::ptrdiff_t>(local_num));
 }
 
-// Fixed seed: full-node / two-node repair tests sample the same node ids / pairs every run.
+// Fixed seed for full-node / two-node repair sampling (reproducible across runs).
 constexpr uint32_t kRepairSampleSeed = 42u;
 
-std::vector<int> sample_unique_node_ids(int count, int total_nodes, uint32_t seed)
+// Repair test sampling helpers.
+int sample_random_node_id(std::mt19937 &rng, int total_nodes)
 {
-    if (count <= 0 || total_nodes <= 0)
-        return {};
-    count = std::min(count, total_nodes);
-    std::mt19937 rng(seed);
+    if (total_nodes <= 0)
+        return -1;
     std::uniform_int_distribution<int> dist(0, total_nodes - 1);
-    std::vector<int> ids;
-    while (static_cast<int>(ids.size()) < count)
-    {
-        const int id = dist(rng);
-        if (std::find(ids.begin(), ids.end(), id) == ids.end())
-            ids.push_back(id);
-    }
-    return ids;
+    return dist(rng);
 }
 
-std::vector<std::pair<int, int>> sample_unique_node_pairs(int count, int total_nodes, uint32_t seed)
+// Pick two distinct node ids from the same cluster (rack).
+std::pair<int, int> sample_random_node_pair_same_cluster(std::mt19937 &rng,
+                                                         int cluster_num,
+                                                         int nodes_per_cluster)
 {
-    std::vector<std::pair<int, int>> pairs;
-    if (count <= 0 || total_nodes <= 1)
-        return pairs;
-    std::mt19937 rng(seed);
-    std::uniform_int_distribution<int> dist(0, total_nodes - 1);
-    while (static_cast<int>(pairs.size()) < count)
-    {
-        int n0 = dist(rng);
-        int n1 = dist(rng);
-        while (n1 == n0)
-            n1 = dist(rng);
-        if (n0 > n1)
-            std::swap(n0, n1);
-        const std::pair<int, int> p{n0, n1};
-        if (std::find(pairs.begin(), pairs.end(), p) == pairs.end())
-            pairs.push_back(p);
-    }
-    return pairs;
+    if (cluster_num <= 0 || nodes_per_cluster <= 1)
+        return {-1, -1};
+    std::uniform_int_distribution<int> cluster_dist(0, cluster_num - 1);
+    const int cluster_id = cluster_dist(rng);
+    const int base = cluster_id * nodes_per_cluster;
+    std::uniform_int_distribution<int> local_dist(0, nodes_per_cluster - 1);
+    int n0 = base + local_dist(rng);
+    int n1 = base + local_dist(rng);
+    while (n1 == n0)
+        n1 = base + local_dist(rng);
+    if (n0 > n1)
+        std::swap(n0, n1);
+    return {n0, n1};
 }
 
 } // namespace
@@ -317,7 +307,7 @@ int main(int argc, char **argv)
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
     
-    int stripe_num = 1;
+    int stripe_num = 34;
 
     size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
     std::cout << "Starting set stripe operation" << std::endl;
@@ -330,11 +320,7 @@ int main(int argc, char **argv)
     std::cout << "Conducting experiments, please wait..." << std::endl;
     std::chrono::duration<double> set_time = std::chrono::duration_cast<std::chrono::duration<double>>(set_end - set_start);
     std::cout << "write throughput: " << (static_cast<double>(total_write_size) / set_time.count()) << " MB/s" << std::endl;
-    std::mt19937 rng(std::random_device{}());
     sleep(5);
-
-    std::uniform_int_distribution<int> dist_500(0, k*stripe_num - 500);
-    std::uniform_real_distribution<double> dist_double(0.0, 1.0);
 
  /*
     // 读性能测试：Normal read -> Degraded read -> Maintenance-robust read（共用上方预写的 stripe）
@@ -551,7 +537,7 @@ int main(int argc, char **argv)
         std::cout << std::endl;
     }
 */
-
+/*
     // for two block recovery (test blocks 0 and 1)
     {
         std::vector<std::chrono::duration<double>> multi_block_recovery_time_spans;
@@ -559,7 +545,7 @@ int main(int argc, char **argv)
         for (int i = 0; i < 5; i++)
         {
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-            client.multi_block_recovery(0, {0, 12});
+            client.multi_block_recovery(0, {0, 1});
             std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> time_span =
                 std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
@@ -572,29 +558,33 @@ int main(int argc, char **argv)
         std::cout << "Two block recovery test end" << std::endl;
         std::cout << std::endl;
     }
-
+*/
 
  /*
     // 打点 breakdown test for two block recovery (test blocks 0 and 1)
     {
-        const double recovered_mb = 2.0 * block_size;
+        const int kBreakdownRounds = 5;
+        const std::vector<int> test_blocks = {0, 1};
+        const double recovered_mb = static_cast<double>(test_blocks.size()) * block_size;
         std::vector<double> disk_read_samples;
         std::vector<double> network_samples;
         std::vector<double> decode_samples;
         std::vector<double> disk_write_samples;
         std::vector<std::chrono::duration<double>> e2e_time_spans;
-        std::cout << "Two block recovery breakdown test start (blocks 0, 1)" << std::endl;
-        for (int i = 0; i < 5; i++)
+        std::cout << "Two block recovery breakdown test start (blocks "
+                  << test_blocks[0] << ", " << test_blocks[1] << ", "
+                  << kBreakdownRounds << " rounds)" << std::endl;
+        for (int i = 0; i < kBreakdownRounds; i++)
         {
             double disk_read = 0.0, network = 0.0, decode = 0.0, disk_write = 0.0;
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-            const bool ok = client.multi_block_recovery_breakdown(0, {0, 1}, disk_read, network, decode, disk_write);
+            const bool ok = client.multi_block_recovery_breakdown(0, test_blocks, disk_read, network, decode, disk_write);
             std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> e2e_span =
                 std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
             if (!ok)
             {
-                std::cout << "[" << i << "th] Two block recovery breakdown failed" << std::endl;
+                std::cout << "[round " << i << "] Two block recovery breakdown failed" << std::endl;
                 continue;
             }
             disk_read_samples.push_back(disk_read);
@@ -602,9 +592,10 @@ int main(int argc, char **argv)
             decode_samples.push_back(decode);
             disk_write_samples.push_back(disk_write);
             e2e_time_spans.push_back(e2e_span);
-            if (e2e_span.count() > 0)
-                std::cout << "[" << i << "th] Two block recovery breakdown throughput (e2e): "
-                          << (recovered_mb / e2e_span.count()) << " MB/s" << std::endl;
+            std::string round_label = "[round " + std::to_string(i) + "] Two block recovery";
+            print_breakdown_summary(round_label.c_str(), disk_read, network, decode, disk_write,
+                                    recovered_mb, e2e_span.count());
+            std::cout << std::endl;
         }
         if (!e2e_time_spans.empty())
         {
@@ -615,7 +606,7 @@ int main(int argc, char **argv)
                 std::accumulate(e2e_time_spans.begin(), e2e_time_spans.end(), std::chrono::duration<double>::zero())
                     .count() /
                 static_cast<double>(e2e_time_spans.size());
-            print_breakdown_summary("Two block recovery",
+            print_breakdown_summary("Two block recovery (avg over rounds)",
                                     avg(disk_read_samples), avg(network_samples), avg(decode_samples),
                                     avg(disk_write_samples), recovered_mb, avg_e2e);
             print_throughput_summary("Two block recovery breakdown (e2e)", e2e_time_spans, recovered_mb);
@@ -886,37 +877,37 @@ int main(int argc, char **argv)
 */
 
 
-/*
-    const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
 
-    //Full node repair: fixed-seed sample over [0, ClusterNum*DatanodeNumPerCluster)
-    std::cout << "Full node repair test start" << std::endl;
-    const int node_num = 5;
-    std::vector<int> node_ids;
+    const int total_nodes = config->ClusterNum * config->DatanodeNumPerCluster;
+    const int nodes_per_cluster = config->DatanodeNumPerCluster;
+    const int kRepairRounds = 5;
+    std::mt19937 repair_rng(kRepairSampleSeed);
+
+    // Full node repair: sample one node, then repair it kRepairRounds times.
+    std::cout << "Full node repair test start (" << kRepairRounds << " rounds)" << std::endl;
     if (total_nodes <= 0)
     {
         std::cout << "Invalid ClusterNum/DatanodeNumPerCluster, skip full node repair test" << std::endl;
     }
     else
     {
-        node_ids = sample_unique_node_ids(node_num, total_nodes, kRepairSampleSeed);
-        std::cout << "node_id range [0, " << (total_nodes - 1) << "], sampled nodes (seed="
-                  << kRepairSampleSeed << "):";
-        print_block_ids("", node_ids);
+        const int node_id = sample_random_node_id(repair_rng, total_nodes);
+        std::cout << "node_id range [0, " << (total_nodes - 1) << "], seed="
+                  << kRepairSampleSeed << ", sampled node " << node_id << std::endl;
 
         std::vector<std::chrono::duration<double>> full_node_time_spans;
         std::vector<double> full_node_recovered_mbs;
-        for (int i = 0; i < node_num; i++)
+        for (int round = 0; round < kRepairRounds; ++round)
         {
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-            int block_num = client.recovery_full_node(node_ids[i]);
+            int block_num = client.recovery_full_node(node_id);
             std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> time_span =
                 std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
             if (block_num <= 0)
             {
-                std::cout << "  node " << node_ids[i] << ": skip (no blocks on node or RPC failed)"
-                          << std::endl;
+                std::cout << "[round " << round << "] node " << node_id
+                          << ": skip (no blocks on node or RPC failed)" << std::endl;
                 continue;
             }
             if (time_span.count() <= 0)
@@ -924,8 +915,9 @@ int main(int argc, char **argv)
             const double sample_mb = static_cast<double>(block_num) * block_size;
             full_node_time_spans.push_back(time_span);
             full_node_recovered_mbs.push_back(sample_mb);
-            std::cout << "  node " << node_ids[i] << ": " << block_num << " blocks, "
-                      << (sample_mb / time_span.count()) << " MB/s" << std::endl;
+            std::cout << "[round " << round << "] node " << node_id << ": " << block_num
+                      << " blocks, " << (sample_mb / time_span.count()) << " MB/s, "
+                      << time_span.count() << " s" << std::endl;
         }
         if (full_node_time_spans.empty())
         {
@@ -940,29 +932,28 @@ int main(int argc, char **argv)
         std::cout << std::endl;
     }
 
-    // Two-node repair: per stripe, 0 blocks skip / 1 block single / 2 blocks dual recovery
-    std::cout << "Two node repair test start" << std::endl;
-    const int pair_num = 5;
-    if (total_nodes <= 1)
+    // Two-node repair: sample one same-cluster pair, then repair it kRepairRounds times.
+    std::cout << "Two node repair test start (" << kRepairRounds << " rounds)" << std::endl;
+    if (total_nodes <= 1 || nodes_per_cluster <= 1)
     {
-        std::cout << "Need at least 2 nodes, skip two-node repair test" << std::endl;
+        std::cout << "Need at least 2 nodes in one cluster, skip two-node repair test" << std::endl;
     }
     else
     {
-        std::vector<std::pair<int, int>> node_pairs =
-            sample_unique_node_pairs(pair_num, total_nodes, kRepairSampleSeed);
-        std::cout << "node_id range [0, " << (total_nodes - 1) << "], sampled pairs (seed="
-                  << kRepairSampleSeed << "):";
-        for (size_t i = 0; i < node_pairs.size(); i++)
-            std::cout << " (" << node_pairs[i].first << "," << node_pairs[i].second << ")";
-        std::cout << std::endl;
+        const auto node_pair = sample_random_node_pair_same_cluster(
+            repair_rng, config->ClusterNum, nodes_per_cluster);
+        const int n0 = node_pair.first;
+        const int n1 = node_pair.second;
+        const int cluster_id = n0 / nodes_per_cluster;
+        std::cout << "node_id range [0, " << (total_nodes - 1)
+                  << "], same-cluster pairs only, seed=" << kRepairSampleSeed
+                  << ", sampled cluster " << cluster_id << ", nodes " << n0 << "," << n1
+                  << std::endl;
 
         std::vector<std::chrono::duration<double>> two_node_time_spans;
         std::vector<double> two_node_recovered_mbs;
-        for (int i = 0; i < pair_num; i++)
+        for (int round = 0; round < kRepairRounds; ++round)
         {
-            const int n0 = node_pairs[i].first;
-            const int n1 = node_pairs[i].second;
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
             int block_num = client.recovery_two_nodes(n0, n1);
             std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
@@ -970,7 +961,7 @@ int main(int argc, char **argv)
                 std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
             if (block_num <= 0)
             {
-                std::cout << "  nodes " << n0 << "," << n1
+                std::cout << "[round " << round << "] nodes " << n0 << "," << n1
                           << ": skip (no blocks on both nodes or RPC failed)" << std::endl;
                 continue;
             }
@@ -979,8 +970,9 @@ int main(int argc, char **argv)
             const double sample_mb = static_cast<double>(block_num) * block_size;
             two_node_time_spans.push_back(time_span);
             two_node_recovered_mbs.push_back(sample_mb);
-            std::cout << "  nodes " << n0 << "," << n1 << ": " << block_num << " blocks, "
-                      << (sample_mb / time_span.count()) << " MB/s" << std::endl;
+            std::cout << "[round " << round << "] nodes " << n0 << "," << n1 << ": " << block_num
+                      << " blocks, " << (sample_mb / time_span.count()) << " MB/s, "
+                      << time_span.count() << " s" << std::endl;
         }
         if (two_node_time_spans.empty())
         {
@@ -995,6 +987,9 @@ int main(int argc, char **argv)
         std::cout << std::endl;
     }
 
+
+
+    
     //for decode test
     // std::cout << "Decode test start" << std::endl;
     // std::vector<double> decode_time_spans;
@@ -1007,7 +1002,7 @@ int main(int argc, char **argv)
     // std::cout << std::accumulate(decode_time_spans.begin(), decode_time_spans.end(), 0.0) / decode_time_spans.size() << std::endl;
     // std::cout << "Decode test end" << std::endl;
     // std::cout << std::endl;
-*/
+
 
 
 /*
