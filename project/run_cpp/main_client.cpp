@@ -307,7 +307,7 @@ int main(int argc, char **argv)
     double block_size = static_cast<double> (parameters[3]) / 1024 / 1024; //MB
     int n = k + r + z;
     
-    int stripe_num = 34;
+    int stripe_num = 12;
 
     size_t total_write_size = static_cast<size_t>(stripe_num * block_size * k); // MB
     std::cout << "Starting set stripe operation" << std::endl;
@@ -731,7 +731,7 @@ int main(int argc, char **argv)
 */
 
 
-
+/*
 //多条带单机架修复
     {
         const int failed_cluster_id = 0;
@@ -874,7 +874,7 @@ int main(int argc, char **argv)
         std::cout << std::endl;
         }
     }
-
+*/
 
 
 
@@ -931,6 +931,7 @@ int main(int argc, char **argv)
         std::cout << "Full node repair test end" << std::endl;
         std::cout << std::endl;
     }
+
 
     // Two-node repair: sample one same-cluster pair, then repair it kRepairRounds times.
     std::cout << "Two node repair test start (" << kRepairRounds << " rounds)" << std::endl;

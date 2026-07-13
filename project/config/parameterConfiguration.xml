@@ -10,8 +10,8 @@
     <!--67108864-->   <!-- 64MB -->
     <!--134217728-->  <!-- 128MB -->
     <!--268435456-->  <!-- 256MB -->
-    <DatanodeNumPerCluster>3</DatanodeNumPerCluster>
-    <ClusterNum>11</ClusterNum>
+    <DatanodeNumPerCluster>5</DatanodeNumPerCluster>
+    <ClusterNum>19</ClusterNum>
     <CoordinatorIP>172.16.0.3</CoordinatorIP>
     <CoordinatorPort>55555</CoordinatorPort>
     <!-- AppendMode: REP_MODE; UNILRC_MODE; CACHED_MODE -->
@@ -19,9 +19,9 @@
     <alpha>2</alpha>
     <!-- LRC: UniLRC; LotusLRC; AzureLRC; OptimalLRC; UniformLRC -->
     <CodeType>UniformLRC</CodeType>
-    <k>24</k>
-    <r>2</r>
-    <z>2</z>
+    <k>72</k>
+    <r>4</r>
+    <z>4</z>
     <!-- <CodeType>UniformLRC</CodeType>
     <k>30</k>
     <r>6</r>

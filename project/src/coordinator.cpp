@@ -6,6 +6,12 @@
 #include "encoder.h"
 #include <sys/time.h>
 #include <chrono>
+#include <cstdint>
+
+// 固定的条带放置种子：机架内选点由 (kPlacementSeed, stripe_id, cluster_id)
+// 确定性播种，使每次运行同一 stripe 的块落在相同的 datanode 上（可复现放置）。
+// 想换一套放置，改这个常量即可。
+static constexpr std::uint32_t kPlacementSeed = 42u;
 
 template <typename T>
 inline T ceil(T const &A, T const &B)
@@ -4063,8 +4069,13 @@ namespace ECProject
   // with the constraint that the node has not been selected for the same stripe
   int CoordinatorImpl::randomly_select_a_node(int cluster_id, int stripe_id)
   {
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    // 确定性播种：同一 (stripe_id, cluster_id) 每次运行都得到相同的随机序列，
+    // 因此机架内选中的 datanode 可复现。while 循环跳过已被该 stripe 占用的节点，
+    // 配合按块固定的调用顺序，保证同一 stripe 的多个块被确定性地分到不同节点。
+    std::seed_seq seq{kPlacementSeed,
+                      static_cast<std::uint32_t>(stripe_id),
+                      static_cast<std::uint32_t>(cluster_id)};
+    std::mt19937 gen(seq);
     std::uniform_int_distribution<int> dis_node(0, m_cluster_table[cluster_id].nodes.size() - 1);
     int r_node_id = m_cluster_table[cluster_id].nodes[dis_node(gen)];
     while (m_node_table[r_node_id].stripes.find(stripe_id) != m_node_table[r_node_id].stripes.end())
